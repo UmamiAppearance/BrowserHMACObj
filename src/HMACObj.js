@@ -68,12 +68,10 @@ class HMACObj {
         if (this.key === null) {
             throw Error("No key is unset.");
         }
-        const keyObj = {};
+        let keyObj = {};
         const keyBuffer = await window.crypto.subtle.exportKey("raw", this.key);
         keyObj.array = Array.from(new Uint8Array(keyBuffer));
-        keyObj.toBase = radix => keyObj.array.map(b => b.toString(radix).padStart(2, '0')).join('');
-        keyObj.toStr = () => keyObj.array.map(b => String.fromCharCode(b)).join('');
-        return keyObj;
+        return this.appendObjConversions(keyObj);
     }
 
     async sign(data, type="str") {
@@ -91,6 +89,12 @@ class HMACObj {
         ).then(
             signature => this.signature = signature
         );
+    }
+
+    getSignature() {
+        const signatureObj = {};
+        signatureObj.array = Array.from(new Uint8Array(this.signature));
+        return this.appendObjConversions(signatureObj);
     }
 
 
@@ -123,5 +127,35 @@ class HMACObj {
                 return new Uint8Array(integers);
             }
         }
+    }
+
+    appendObjConversions(obj) {
+        
+        function mapArray(radix) {
+            /*
+                Returns the string representation of the given radix.
+            */
+            return obj.array.map(b => b.toString(radix).padStart(2, '0')).join('');
+        }
+
+        function mapToBase64() {
+            /*
+                Returns a base64 string represention of the hash array.
+            */
+            return window.btoa(obj.array.map(b => String.fromCharCode(b)).join(''));
+        }
+
+        if (!obj.array) throw new Error("No signature associated to this object.");
+
+        obj.toBase = (radix) => mapArray(radix);
+        obj.toBin = () => mapArray(2);
+        obj.toOct = () => mapArray(8);
+        obj.toDec = () => mapArray(10);
+        obj.toHex = () => mapArray(16);
+        obj.toBase36 = () => mapArray(36).toUpperCase();
+        obj.toBase64 = () => mapToBase64();
+        obj.toInt = () => parseInt(mapArray(10), 10);
+
+        return obj;
     }
 }
