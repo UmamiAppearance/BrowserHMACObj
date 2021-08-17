@@ -1,18 +1,29 @@
 class HMACObj {
     constructor(algorithm="SHA-256") {
         const algorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
-        algorithm = `SHA-${String(algorithm).match(/[0-9]+/)[0]}`;                      // simplify the input for the user - sha1, Sha-256... everything is fine, even 384 by itself, as long as the numbers match to the provided algorithms
+
+        // simplify the input for the user - sha1, Sha-256...
+        // everything is fine, even 384 by itself, as long
+        // as the numbers match to the provided algorithms
+        const version = String(algorithm).match(/[0-9]+/)[0];
+        algorithm = `SHA-${version}`;
         if (!algorithms.includes(algorithm)) {
             throw new Error(`Ivalid algorithm.\nValid arguments are: "${algorithms.join(", ")}".`);
         }
 
+        // set the block-size (64 for SHA-1 & SHA-256 / 128 for SHA-384 & SHA-512)
+        this.blockSize = (parseInt(version, 10) < 384) ? 64 : 128;
+
+        // set other class-variables
         this.algorithm = algorithm;
         this.key = null;
+        this.keyIsExportable = false;
         this.signature = null;
 
-        this.genImportCoversions();
+        // genrate the conversions for user-input
+        this.genToBufferConversions();
     }
-    
+
     convertInput(key, type) {
         let msgEnc;
         
@@ -22,21 +33,33 @@ class HMACObj {
             // convert input to string 
             key = String(key);
 
-            // convert from given type
+            // convert to ArrayBuffer from the given type
             if (type === "str") {
                 msgEnc = new TextEncoder().encode(key);
             } else if (type === "hex") {
                 msgEnc = this.conversions.hexStr(key);
             } else {
-                throw new Error("Unknown input type.")
+                throw new TypeError("Unknown input type.")
             }
         }
         
         return msgEnc;
     }
 
-    async importKey(key, type="str") {
-        const keyEnc = this.convertInput(key, type); 
+    setKey(keyObj) {
+        this.key = keyObj;
+        this.signature = null;      // reset signature
+    }
+
+    async importKey(key, type="str", allowExports=false) {
+        const classObj = this;
+        const keyEnc = this.convertInput(key, type);
+        if (keyEnc.length < this.blockSize) {
+            const message = `WARNING: Your provided key-length is ${keyEnc.length}.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.algorithm}.\nIt will work, but this is not secure.`
+            this.warnUser(message);
+        }
+        this.keyIsExportable = allowExports;
+        
         crypto.subtle.importKey(
             "raw",
             keyEnc,
@@ -44,33 +67,40 @@ class HMACObj {
                 name: "HMAC",
                 hash: {name: this.algorithm}
             },
-            true,
+            allowExports,
             ["sign", "verify"]
         ).then(
-            keyObj => this.key = keyObj
+            keyObj => classObj.setKey(keyObj)
         );
     }
 
-    async generateKey() {
+    async generateKey(allowExports=false) {
+        const classObj = this;
+        this.keyIsExportable = allowExports;
+
         window.crypto.subtle.generateKey(
             {
               name: "HMAC",
               hash: {name: this.algorithm}
             },
-            true,
+            allowExports,
             ["sign", "verify"]
         ).then(
-            keyObj => this.key = keyObj
+            keyObj => classObj.setKey(keyObj)
         );
     }
 
     async exportKey() {
         if (this.key === null) {
-            throw Error("No key is unset.");
+            throw Error("Key is unset.");
         }
-        let keyObj = {};
+        if (!this.keyIsExportable) {
+            throw Error("Key exports are not permitted. You have to allow this before key-generation.");
+        }
         const keyBuffer = await window.crypto.subtle.exportKey("raw", this.key);
-        keyObj.array = Array.from(new Uint8Array(keyBuffer));
+        const keyObj = {
+            array: Array.from(new Uint8Array(keyBuffer))
+        }
         return this.appendObjConversions(keyObj);
     }
 
@@ -91,71 +121,85 @@ class HMACObj {
         );
     }
 
+    async verify(data, type="str") {
+        const dataEnc = this.convertInput(data, type);
+        if (this.key === null) {
+            throw new Error('No key is assigned yet. Import or generate a key.');
+        }
+        if (this.signature === null) {
+            throw new Error('No signature is assigned yet. Sign your data before verifying.');
+        }
+        const isValid = await window.crypto.subtle.verify(
+            "HMAC",
+            this.key,
+            this.signature,
+            dataEnc
+        );
+        return isValid;
+    }
+
     getSignature() {
-        const signatureObj = {};
-        signatureObj.array = Array.from(new Uint8Array(this.signature));
+        const signatureObj = {
+            array: Array.from(new Uint8Array(this.signature))
+        };
         return this.appendObjConversions(signatureObj);
     }
 
 
-    genImportCoversions() {
+    genToBufferConversions() {
         this.conversions = { 
             hexStr: function(hexString) {
                 /*
+                    inspired by:
                     https://gist.github.com/don/871170d88cf6b9007f7663fdbc23fe09
                 */
+               
                 // remove the leading 0x
                 hexString = hexString.replace(/^0x/, '');
                 
+                if (isNaN(parseInt(hexString, 16))) {
+                    throw new TypeError("The provided input is not a valid hexadecimal string.")
+                }
+
                 // ensure even number of characters
                 if (Boolean(hexString.length % 2)) {
                     hexString = "0".concat(hexString);
                 }
                 
-                // check for some non-hex characters
-                const nonHex = hexString.match(/[G-Z\s]/i);
-                if (nonHex) {
-                    console.log('WARNING: found non-hex characters', nonHex);    
-                }
+                // Split the string into pairs of octets, convert to integers 
+                // and create a Uin8array from the output.
+                const array = Uint8Array.from(hexString.match(/../g).map(s => parseInt(s, 16)));
                 
-                // split the string into pairs of octets
-                const pairs = hexString.match(/[\dA-F]{2}/gi);
-                
-                // convert the octets to integers
-                const integers = pairs.map(s => parseInt(s, 16));
-                
-                return new Uint8Array(integers);
-            }
+                return array;
+            }   
         }
     }
 
-    appendObjConversions(obj) {
-        
-        function mapArray(radix) {
-            /*
-                Returns the string representation of the given radix.
-            */
-            return obj.array.map(b => b.toString(radix).padStart(2, '0')).join('');
-        }
-
-        function mapToBase64() {
-            /*
-                Returns a base64 string represention of the hash array.
-            */
-            return window.btoa(obj.array.map(b => String.fromCharCode(b)).join(''));
-        }
-
+    appendObjConversions(obj) {    
+        /* 
+            The following conversion functions are
+            appended to exported key or signature.
+        */
         if (!obj.array) throw new Error("No signature associated to this object.");
 
-        obj.toBase = (radix) => mapArray(radix);
-        obj.toBin = () => mapArray(2);
-        obj.toOct = () => mapArray(8);
-        obj.toDec = () => mapArray(10);
-        obj.toHex = () => mapArray(16);
-        obj.toBase36 = () => mapArray(36).toUpperCase();
-        obj.toBase64 = () => mapToBase64();
-        obj.toInt = () => parseInt(mapArray(10), 10);
+        obj.toASCII = () => obj.array.map(b => String.fromCharCode(b)).join('');
+        obj.toBase = (radix) => obj.array.map(b => b.toString(radix).padStart(2, '0')).join('');
+        obj.toBin = () => obj.toBase(2);
+        obj.toOct = () => obj.toBase(8);
+        obj.toDec = () => obj.toBase(10);
+        obj.toHex = () => obj.toBase(16);
+        obj.toBase36 = () => obj.toBase(36).toUpperCase();
+        obj.toBase64 = () => window.btoa(obj.toASCII());
+        obj.toInt = () => parseInt(obj.toBase(10), 10);
 
         return obj;
+    }
+
+    warnUser(message) {
+        if (console.hasOwnProperty("warn")) {
+            console.warn(message);
+        } else {
+            console.log(`___\n${message}\n`);
+        }
     }
 }
