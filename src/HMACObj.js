@@ -187,14 +187,12 @@ class HMACObj {
         if (!obj.array) throw new Error("No signature associated to this object.");
 
         obj.toASCII = () => obj.array.map(b => String.fromCharCode(b)).join("");
-        obj.toBase = (radix) => obj.array.map(b => b.toString(radix).padStart(2, "0")).join("");
-        obj.toBin = () => obj.toBase(2);
-        obj.toOct = () => obj.toBase(8);
-        obj.toDec = () => obj.toBase(10);
-        obj.toHex = () => obj.toBase(16);
-        obj.toBase32 = () => obj.toBase(32).toUpperCase();
+        obj.toBin = () => obj.array.map(b => b.toString(2).padStart(8, "0")).join("");
+        obj.toDec = () => obj.array.map(b => b.toString(10)).join("");
+        obj.toHex = () => obj.array.map(b => b.toString(16).padStart(2, "0")).join("");
+        obj.toBase32 = () => base32(obj.array, "rfc4648", "buffer");
         obj.toBase64 = () => window.btoa(obj.toASCII());
-        obj.toInt = () => parseInt(obj.toBase(10), 10);
+        obj.toInt = () => parseInt(obj.toDec());
 
         return obj;
     }
@@ -221,8 +219,9 @@ function base32(input, standard="rfc4648", inputType="str") {
     if (inputType === "str") {
         binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
     } else if (inputType === "buffer") {
-        binaryStr = Array.from(input).map(b => b.toString(2)).join("");
+        binaryStr = Array.from(input).map(b => b.toString(2).padStart(8, "0")).join("");
     }
+    console.log(binaryStr);
 
     const bitGroups = binaryStr.match(/.{1,40}/g);
 
@@ -234,8 +233,10 @@ function base32(input, standard="rfc4648", inputType="str") {
             output = output.concat(chars[charIndex]);
         });
     });
-    const fillChars = output.length + 8 - output.length % 8;
-    output = output.padEnd(fillChars, "=");
-    
+    const missingChars = output.length % 8;
+    if (Boolean(missingChars)) {
+        output = output.padEnd(output.length + 8-missingChars, "=");
+    }
+
     return output;
 }
