@@ -186,8 +186,8 @@ class HMACObj {
         */
         if (!obj.array) throw new Error("No signature associated to this object.");
 
-        obj.toASCII = () => obj.array.map(b => String.fromCharCode(b)).join('');
-        obj.toBase = (radix) => obj.array.map(b => b.toString(radix).padStart(2, '0')).join('');
+        obj.toASCII = () => obj.array.map(b => String.fromCharCode(b)).join("");
+        obj.toBase = (radix) => obj.array.map(b => b.toString(radix).padStart(2, "0")).join("");
         obj.toBin = () => obj.toBase(2);
         obj.toOct = () => obj.toBase(8);
         obj.toDec = () => obj.toBase(10);
@@ -208,19 +208,21 @@ class HMACObj {
     }
 }
 
-function b32(input, standard="RFC_4648") {
+function base32(input, standard="rfc4648", inputType="str") {
     let chars;
-    if (standard === "RFC_3548") {
+    if (standard === "rfc3548") {
         chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    } else if (standard === "RFC_4648") {
+    } else if (standard === "rfc4648") {
         chars = '0123456789ABCDEFGHIJKLMNOPQRSTUV';
     } else {
-        throw new TypeError("Unknown standard. The options are \"RFC_3548\" and \"RFC_4648\".");
+        throw new TypeError("Unknown standard.\nThe options are \"rfc3548\" and \"rfc4648\".");
     }
-    function strToBin(s) {
-        return s.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
+    let binaryStr;
+    if (inputType === "str") {
+        binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
+    } else if (inputType === "array") {
+        binaryStr = input.map(b => b.toString(2).padStart(8, "0")).join("");
     }
-    binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
 
     const bitGroups = binaryStr.match(/.{1,40}/g);
 
