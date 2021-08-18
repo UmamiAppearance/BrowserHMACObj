@@ -38,6 +38,11 @@ class HMACObj {
                 msgEnc = new TextEncoder().encode(key);
             } else if (type === "hex") {
                 msgEnc = this.conversions.hexStr(key);
+            } else if (type === "base32") {
+                // TODO
+                return;
+            } else if (type === "base64") {
+                msgEnc = Uint8Array.from(window.atob(key), c => c.charCodeAt(0));
             } else {
                 throw new TypeError("Unknown input type.")
             }
@@ -145,7 +150,6 @@ class HMACObj {
         return this.appendObjConversions(signatureObj);
     }
 
-
     genToBufferConversions() {
         this.conversions = { 
             hexStr: function(hexString) {
@@ -154,7 +158,7 @@ class HMACObj {
                     https://gist.github.com/don/871170d88cf6b9007f7663fdbc23fe09
                 */
                
-                // remove the leading 0x
+                // remove the leading 0x if present
                 hexString = hexString.replace(/^0x/, '');
                 
                 if (isNaN(parseInt(hexString, 16))) {
@@ -168,7 +172,7 @@ class HMACObj {
                 
                 // Split the string into pairs of octets, convert to integers 
                 // and create a Uin8array from the output.
-                const array = Uint8Array.from(hexString.match(/../g).map(s => parseInt(s, 16)));
+                const array = Uint8Array.from(hexString.match(/../g).map(pair => parseInt(pair, 16)));
                 
                 return array;
             }   
@@ -188,7 +192,7 @@ class HMACObj {
         obj.toOct = () => obj.toBase(8);
         obj.toDec = () => obj.toBase(10);
         obj.toHex = () => obj.toBase(16);
-        obj.toBase36 = () => obj.toBase(36).toUpperCase();
+        obj.toBase32 = () => obj.toBase(32).toUpperCase();
         obj.toBase64 = () => window.btoa(obj.toASCII());
         obj.toInt = () => parseInt(obj.toBase(10), 10);
 
@@ -202,4 +206,34 @@ class HMACObj {
             console.log(`___\n${message}\n`);
         }
     }
+}
+
+function b32(input, standard="RFC_4648") {
+    let chars;
+    if (standard === "RFC_3548") {
+        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    } else if (standard === "RFC_4648") {
+        chars = '0123456789ABCDEFGHIJKLMNOPQRSTUV';
+    } else {
+        throw new TypeError("Unknown standard. The options are \"RFC_3548\" and \"RFC_4648\".");
+    }
+    function strToBin(s) {
+        return s.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
+    }
+    binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
+
+    const bitGroups = binaryStr.match(/.{1,40}/g);
+
+    let output = "";
+    bitGroups.map(function(group) {
+        const blocks = group.match(/.{1,5}/g).map(s=>s.padEnd(5, '0'));
+        blocks.map(function(block) {
+            const charIndex = parseInt(block, 2);
+            output = output.concat(chars[charIndex]);
+        });
+    });
+    const fillChars = output.length + 8 - output.length % 8;
+    output = output.padEnd(fillChars, "=");
+    
+    return output;
 }
