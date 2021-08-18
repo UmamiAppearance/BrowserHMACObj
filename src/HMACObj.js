@@ -220,8 +220,8 @@ function base32(input, standard="rfc4648", inputType="str") {
     let binaryStr;
     if (inputType === "str") {
         binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
-    } else if (inputType === "array") {
-        binaryStr = input.map(b => b.toString(2).padStart(8, "0")).join("");
+    } else if (inputType === "buffer") {
+        binaryStr = Array.from(input).map(b => b.toString(2)).join("");
     }
 
     const bitGroups = binaryStr.match(/.{1,40}/g);
