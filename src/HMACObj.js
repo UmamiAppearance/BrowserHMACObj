@@ -20,6 +20,10 @@ class HMACObj {
         this.keyIsExportable = false;
         this.signature = null;
 
+        this.converters = {
+            base32: new Base32("rfc4648")
+        }
+
         // genrate the conversions for user-input
         this.genToBufferConversions();
     }
@@ -39,8 +43,7 @@ class HMACObj {
             } else if (type === "hex") {
                 msgEnc = this.conversions.hexStr(key);
             } else if (type === "base32") {
-                // TODO
-                return;
+                this.converters.base32.decode(key);
             } else if (type === "base64") {
                 msgEnc = Uint8Array.from(window.atob(key), c => c.charCodeAt(0));
             } else {
@@ -126,7 +129,7 @@ class HMACObj {
         );
     }
 
-    async verify(data, type="str") {
+    async verify(data, type="str") { // FIXME: not only data but signature as input 
         const dataEnc = this.convertInput(data, type);
         if (this.key === null) {
             throw new Error('No key is assigned yet. Import or generate a key.');
@@ -144,6 +147,9 @@ class HMACObj {
     }
 
     getSignature() {
+        if (this.signature === null) {
+            return null;
+        }
         const signatureObj = {
             array: Array.from(new Uint8Array(this.signature))
         };
@@ -190,7 +196,7 @@ class HMACObj {
         obj.toBin = () => obj.array.map(b => b.toString(2).padStart(8, "0")).join("");
         obj.toDec = () => obj.array.map(b => b.toString(10)).join("");
         obj.toHex = () => obj.array.map(b => b.toString(16).padStart(2, "0")).join("");
-        obj.toBase32 = () => base32(obj.array, "rfc4648", "buffer");
+        obj.toBase32 = () => this.converters.base32.encode(obj.array, "array");
         obj.toBase64 = () => window.btoa(obj.toASCII());
         obj.toInt = () => parseInt(obj.toDec());
 
@@ -207,12 +213,12 @@ class HMACObj {
 }
 
 
-
+// from: https://github.com/UmamiAppearance/BaseExJS
 class Base32 {
     constructor(standard=null) {
         
         if (standard && !(standard === "rfc3548" || standard === "rfc4648")) {
-            throw new Error("Unknown standard.\nThe options are 'rfc3548' and 'rfc4648'.");
+            throw new TypeError("Unknown standard.\nThe options are 'rfc3548' and 'rfc4648'.");
         }
 
         this.standard = standard;
@@ -225,13 +231,13 @@ class Base32 {
 
     validateArgs(args) {
         if (Boolean(args.length)) {
-            const validArgs = ["rfc3548", "rfc4648", "str", "buffer"];
+            const validArgs = ["rfc3548", "rfc4648", "str", "array"];
             const globalStandard = Boolean(this.standard);
             const warning = this.warnUser;
 
             args.forEach(arg => {
                 if (!validArgs.includes(arg)) {
-                    throw new Error(`Invalid argument: "${arg}"\nThe options are 'rfc3548' and 'rfc4648' for the rfc-standard, for in- and output-type, valid arguments are 'str' and 'buffer'.`);
+                    throw new TypeError(`Invalid argument: "${arg}"\nThe options are 'rfc3548' and 'rfc4648' for the rfc-standard, for in- and output-type, valid arguments are 'str' and 'array'.`);
                 } else if (validArgs.slice(0, 2).includes(arg)) {
                     warning(`Standard is already set.\nArgument '${arg}' will be ignored.`)
                 }
@@ -241,7 +247,17 @@ class Base32 {
 
     validateInput(input, inputType) {
         if (inputType === "str") {
-            //TODO
+            if (typeof input !== "string") {
+                this.warnUser("Your input was converted into a string.");
+            }
+            return String(input);
+        } else {
+            if (typeof input === "string") {
+                throw new TypeError("Your provided input is a string, but some kind of (typed) Array is expected.");
+            } else if (typeof input !== 'object') {
+                throw new TypeError("Input must be some kind of (typed) Array if input type is set to 'array'.");
+            }
+            return input; 
         }
     }
     
@@ -256,18 +272,18 @@ class Base32 {
             standard = "rfc3548";
         }
 
-        const inputType = (args.includes("buffer")) ? "buffer" : "str";
-        this.validateInput(input, inputType);
+        const inputType = (args.includes("array")) ? "array" : "str";
+        input = this.validateInput(input, inputType);
 
         const chars = this.chars[standard];
 
         let binaryStr;
         if (inputType === "str") {
             binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
-        } else if (inputType === "buffer") {
+        } else if (inputType === "array") {
             binaryStr = Array.from(input).map(b => b.toString(2).padStart(8, "0")).join("");
         }
-        console.log(binaryStr);
+
         const bitGroups = binaryStr.match(/.{1,40}/g);
 
         let output = "";
@@ -296,7 +312,7 @@ class Base32 {
             standard = "rfc3548";
         }
 
-        const outputType = (args.includes("buffer")) ? "buffer" : "str";
+        const outputType = (args.includes("array")) ? "array" : "str";
         const chars = this.chars[standard];
         
         let binaryStr = "";
@@ -309,14 +325,21 @@ class Base32 {
             }
         });
         
-        console.log(binaryStr);
         const byteArray = binaryStr.match(/.{8}/g).map(bin => parseInt(bin, 2))
         const uInt8 = Uint8Array.from(byteArray);
 
-        if (outputType === "buffer") {
+        if (outputType === "array") {
             return uInt8;
         } else {
             return byteArray.map(b => String.fromCharCode(b)).join("");
+        }
+    }
+
+    warnUser(message) {
+        if (console.hasOwnProperty("warn")) {
+            console.warn(message);
+        } else {
+            console.log(`___\n${message}\n`);
         }
     }
 }
