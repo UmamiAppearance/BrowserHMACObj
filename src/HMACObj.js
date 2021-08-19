@@ -206,37 +206,81 @@ class HMACObj {
     }
 }
 
-function base32(input, standard="rfc4648", inputType="str") {
-    let chars;
-    if (standard === "rfc3548") {
-        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    } else if (standard === "rfc4648") {
-        chars = '0123456789ABCDEFGHIJKLMNOPQRSTUV';
-    } else {
-        throw new TypeError("Unknown standard.\nThe options are \"rfc3548\" and \"rfc4648\".");
-    }
-    let binaryStr;
-    if (inputType === "str") {
-        binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
-    } else if (inputType === "buffer") {
-        binaryStr = Array.from(input).map(b => b.toString(2).padStart(8, "0")).join("");
-    }
-    console.log(binaryStr);
+class Base32 {
+    constructor(standard=null) {
+        this.standardErrorMsg = "Unknown standard.\nThe options are 'rfc3548' and 'rfc4648'.";
+        
+        if (standard && !(standard === "rfc3548" || standard === "rfc4648")) {
+            throw new Error(this.standardErrorMsg);
+        }
 
-    const bitGroups = binaryStr.match(/.{1,40}/g);
+        this.standard = standard;
 
-    let output = "";
-    bitGroups.map(function(group) {
-        const blocks = group.match(/.{1,5}/g).map(s=>s.padEnd(5, '0'));
-        blocks.map(function(block) {
-            const charIndex = parseInt(block, 2);
-            output = output.concat(chars[charIndex]);
+        this.chars = {
+            rfc3548: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+            rfc4648: "0123456789ABCDEFGHIJKLMNOPQRSTUV" 
+        }
+    }
+    
+    encode(input, standard="rfc4648", inputType="str") {
+        
+        if (this.standard) {
+            standard = this.standard;
+        } else if (!(standard === "rfc3548" || standard === "rfc4648")) {
+            throw new Error(this.standardErrorMsg);
+        }
+        const chars = this.chars[standard];
+
+        let binaryStr;
+        if (inputType === "str") {
+            binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2).padStart(8, "0")).join("");
+        } else if (inputType === "buffer") {
+            binaryStr = Array.from(input).map(b => b.toString(2).padStart(8, "0")).join("");
+        }
+        console.log(binaryStr);
+        const bitGroups = binaryStr.match(/.{1,40}/g);
+
+        let output = "";
+        bitGroups.map(function(group) {
+            const blocks = group.match(/.{1,5}/g).map(s=>s.padEnd(5, '0'));
+            blocks.map(function(block) {
+                const charIndex = parseInt(block, 2);
+                output = output.concat(chars[charIndex]);
+            });
         });
-    });
-    const missingChars = output.length % 8;
-    if (Boolean(missingChars)) {
-        output = output.padEnd(output.length + 8-missingChars, "=");
+        const missingChars = output.length % 8;
+        if (Boolean(missingChars)) {
+            output = output.padEnd(output.length + 8-missingChars, "=");
+        }
+
+        return output;
     }
 
-    return output;
+    decode(input, standard="rfc4648") {
+        if (this.standard) {
+            standard = this.standard;
+        } else if (!(standard === "rfc3548" || standard === "rfc4648")) {
+            throw new Error(this.standardErrorMsg);
+        }
+        const chars = this.chars[standard];
+        
+        let binaryStr = "";
+
+        input.split('').map((c) => {
+            const index = chars.indexOf(c);
+            console.log(index);
+            if (index > -1) {                                       // -1 is the index if the char was not found, "=" will be ignored
+                binaryStr = binaryStr.concat(index.toString(2).padStart(5, "0"));
+            }
+        });
+        
+        console.log(binaryStr);
+
+        const bytes = binaryStr.match(/.{1,8}/g);
+
+        console.log(bytes);
+        
+        
+        //const binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2)).join("");
+    }
 }
