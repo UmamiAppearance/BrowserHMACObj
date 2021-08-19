@@ -206,12 +206,13 @@ class HMACObj {
     }
 }
 
+
+
 class Base32 {
     constructor(standard=null) {
-        this.standardErrorMsg = "Unknown standard.\nThe options are 'rfc3548' and 'rfc4648'.";
         
         if (standard && !(standard === "rfc3548" || standard === "rfc4648")) {
-            throw new Error(this.standardErrorMsg);
+            throw new Error("Unknown standard.\nThe options are 'rfc3548' and 'rfc4648'.");
         }
 
         this.standard = standard;
@@ -221,14 +222,43 @@ class Base32 {
             rfc4648: "0123456789ABCDEFGHIJKLMNOPQRSTUV" 
         }
     }
+
+    validateArgs(args) {
+        if (Boolean(args.length)) {
+            const validArgs = ["rfc3548", "rfc4648", "str", "buffer"];
+            const globalStandard = Boolean(this.standard);
+            const warning = this.warnUser;
+
+            args.forEach(arg => {
+                if (!validArgs.includes(arg)) {
+                    throw new Error(`Invalid argument: "${arg}"\nThe options are 'rfc3548' and 'rfc4648' for the rfc-standard, for in- and output-type, valid arguments are 'str' and 'buffer'.`);
+                } else if (validArgs.slice(0, 2).includes(arg)) {
+                    warning(`Standard is already set.\nArgument '${arg}' will be ignored.`)
+                }
+            });
+        }
+    }
+
+    validateInput(input, inputType) {
+        if (inputType === "str") {
+            //TODO
+        }
+    }
     
-    encode(input, standard="rfc4648", inputType="str") {
+    encode(input, ...args) {
         
+        this.validateArgs(args);
+        
+        let standard = "rfc4648";
         if (this.standard) {
             standard = this.standard;
-        } else if (!(standard === "rfc3548" || standard === "rfc4648")) {
-            throw new Error(this.standardErrorMsg);
+        } else if (args.includes("rfc3548")) {
+            standard = "rfc3548";
         }
+
+        const inputType = (args.includes("buffer")) ? "buffer" : "str";
+        this.validateInput(input, inputType);
+
         const chars = this.chars[standard];
 
         let binaryStr;
@@ -256,12 +286,17 @@ class Base32 {
         return output;
     }
 
-    decode(input, standard="rfc4648") {
+    decode(input, ...args) {
+
+        this.validateArgs(args);
+        let standard = "rfc4648";
         if (this.standard) {
             standard = this.standard;
-        } else if (!(standard === "rfc3548" || standard === "rfc4648")) {
-            throw new Error(this.standardErrorMsg);
+        } else if (args.includes("rfc3548")) {
+            standard = "rfc3548";
         }
+
+        const outputType = (args.includes("buffer")) ? "buffer" : "str";
         const chars = this.chars[standard];
         
         let binaryStr = "";
@@ -275,12 +310,13 @@ class Base32 {
         });
         
         console.log(binaryStr);
+        const byteArray = binaryStr.match(/.{8}/g).map(bin => parseInt(bin, 2))
+        const uInt8 = Uint8Array.from(byteArray);
 
-        const bytes = binaryStr.match(/.{1,8}/g);
-
-        console.log(bytes);
-        
-        
-        //const binaryStr = input.split('').map((c) => c.charCodeAt(0).toString(2)).join("");
+        if (outputType === "buffer") {
+            return uInt8;
+        } else {
+            return byteArray.map(b => String.fromCharCode(b)).join("");
+        }
     }
 }
