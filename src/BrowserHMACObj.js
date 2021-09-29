@@ -24,7 +24,7 @@ class HMACObj {
             base32: new Base32("rfc4648")
         }
 
-        // genrate the conversions for user-input
+        // generate the conversions for user-input
         this.genToBufferConversions();
     }
 
