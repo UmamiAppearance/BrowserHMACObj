@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title></title>
-    <script src="src/HMACObj.js"></script>
+    <script type="module">
+      import HMACObj from "./src/BrowserHMACObj.js";
+      window.HMACObj = HMACObj;
+    </script>
   </head>
   <body>
     <header></header>
