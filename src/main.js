@@ -192,9 +192,11 @@ class HMAC {
 }
 
 
-class hmac {
+class Main {
 
 }
+
+const hmac = new Main();
 
 
 
