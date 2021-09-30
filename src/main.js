@@ -191,13 +191,116 @@ class HMAC {
     }
 }
 
+class CryptoSubtle {
+    async importKey(key, type="str", allowExports=false) {
+        const classObj = this;
+        const keyEnc = this.convertInput(key, type);
+        if (keyEnc.length < this.blockSize) {
+            warning(`WARNING: Your provided key-length is '${keyEnc.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.algorithm}.\nIt will work, but this is not secure.`);
+        }
+        this.keyIsExportable = allowExports;
+        
+        crypto.subtle.importKey(
+            "raw",
+            keyEnc,
+            {
+                name: "HMAC",
+                hash: {name: this.algorithm}
+            },
+            allowExports,
+            ["sign", "verify"]
+        ).then(
+            keyObj => classObj.setKey(keyObj)
+        );
+    }
+
+    async generateKey(allowExports=false) {
+        const classObj = this;
+        this.keyIsExportable = allowExports;
+
+        window.crypto.subtle.generateKey(
+            {
+              name: "HMAC",
+              hash: {name: this.algorithm}
+            },
+            allowExports,
+            ["sign", "verify"]
+        ).then(
+            keyObj => classObj.setKey(keyObj)
+        );
+    }
+
+    async exportKey() {
+        if (this.key === null) {
+            throw new Error("Key is unset.");
+        }
+        if (!this.keyIsExportable) {
+            throw new PermissionError("Key exports are not allowed. You have to set this before key-generation.");
+        }
+        const keyBuffer = await window.crypto.subtle.exportKey("raw", this.key);
+        const keyObj = {
+            array: Array.from(new Uint8Array(keyBuffer))
+        }
+        return this.appendObjConversions(keyObj);
+    }
+
+    async sign(data, type="str") {
+        const dataEnc = this.convertInput(data, type);
+        if (this.key === null) {
+            throw new Error('No key is assigned yet. Import or generate a key.');
+        } 
+        window.crypto.subtle.sign(
+            {
+                name: "HMAC",
+                hash: {name: this.algorithm}
+            },
+            this.key,
+            dataEnc
+        ).then(
+            signature => this.signature = signature
+        );
+    }
+
+    async verify(data, type="str") { // FIXME: not only data but signature as input 
+        const dataEnc = this.convertInput(data, type);
+        if (this.key === null) {
+            throw new Error('No key is assigned yet. Import or generate a key.');
+        }
+        if (this.signature === null) {
+            throw new Error('No signature is assigned yet. Sign your data before verifying.');
+        }
+        const isValid = await window.crypto.subtle.verify(
+            "HMAC",
+            this.key,
+            this.signature,
+            dataEnc
+        );
+        return isValid;
+    }
+}
+
 
 class Main {
+    constructor() {
+        this.HMAC = HMAC;
+
+    }
+
+    converters() {
+        warning("Converters are not initialized");
+        return false;
+    }
+
+    trans5C(byteArray) {
+        return translateBytes(byteArray, 0x5C);
+    }
+
+    trans36(byteArray) {
+        return translateBytes(byteArray, 0x36);
+    }
 
 }
 
 const hmac = new Main();
 
-
-
-export default HMAC; 
+export default hmac; 

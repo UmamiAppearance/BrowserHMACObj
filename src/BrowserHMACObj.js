@@ -1,6 +1,6 @@
 import { BaseEx } from "../lib/BaseEx/src/BaseEx.js";
-import HMAC from "./main.js";
+import hmac from "./main.js";
 
-HMAC.prototype.converters = new BaseEx("bytes");
+hmac.converters = new BaseEx("bytes");
 
-export default HMAC;
+export default hmac;
