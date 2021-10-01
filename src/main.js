@@ -13,12 +13,10 @@ function warn(message) {
     }
 }
 
-const translateBytes = (byteArray, bitVal) => byteArray.map(b => b ^ bitVal);
-
-const algorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+const digestmods = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
 class HMAC {
-    constructor(key, msg=null, digestmod="") {
+    constructor(digestmod) {
 
         if (!digestmod) {
             throw new TypeError("Missing required parameter 'digestmod'.")
@@ -26,48 +24,46 @@ class HMAC {
 
         // Simplify the input for the user - sha1, Sha-256...
         // everything is fine, even 384 by itself, as long
-        // as the numbers match to the provided algorithms.
+        // as the numbers match to the provided digestmods.
         const version = String(digestmod).match(/[0-9]+/)[0];
         digestmod = `SHA-${version}`;
-        if (!algorithms.includes(digestmod)) {
-            throw new TypeError(`Invalid algorithm.\nValid arguments are: "${algorithms.join(", ")}".`);
+        if (!digestmods.includes(digestmod)) {
+            throw new TypeError(`Invalid digestmod.\nValid arguments are: "${digestmods.join(", ")}".`);
         }
 
         // set the block-size (64 for SHA-1 & SHA-256 / 128 for SHA-384 & SHA-512)
         this.blockSize = (parseInt(version, 10) < 384) ? 64 : 128;
 
-        // set other class-variables
-        this.algorithm = digestmod;
-        this.key = key;
-        this.keyIsExportable = false;
-        this.signature = null;
+        // set digestmod
+        this.digestmod = digestmod;
+        this.msg = new Array();
+
     }
 
-    convertInput(key, type) {
-        let msgEnc;
-        
-        if (type == "buffer") {
-            msgEnc = key;
+    async init(msg, key="auto") {
+        if (key === "auto") {
+            warn("No key was specified. It is generated for you and exportable. If you don't want this behaviour, pass a key as second argument to this call.");
+            CryptoSubtle.generateKey(this.digestmod, true).then(freshKey => this.key = freshKey);
         } else {
-            // convert input to string 
-            key = String(key);
-
-            // convert to ArrayBuffer from the given type
-            if (type === "str") {
-                msgEnc = new TextEncoder().encode(key);
-            } else if (type === "hex") {
-                msgEnc = this.converters.base16(key);
-            } else if (type === "base32") {
-                msgEnc = this.converters.base32_rfc4648.decode(key);
-            } else if (type === "base64") {
-                msgEnc = this.converters.base64.decode(key);
-            } else {
-                throw new TypeError("Unknown input type.")
-            }
+            this.key = key;
         }
-        
-        return msgEnc;
+        await this.update();
     }
+
+    async update(msg) {
+        this.msg = this.msg.concat(msg);
+        this.current = await this.CryptoSubtle.sign(this.msg, this.key);
+    }
+
+    prepMsg(msg) {
+        let prepped;
+        if (typeof(msg) === "string") {
+            prepped = new TextEncoder().encode(input);
+        } else if (!(input instanceof ArrayBuffer || ArrayBuffer.isView(input))) {
+            throw new TypeError("Input must be of type String, ArrayBuffer or ArrayBufferView (typed array)");
+        }
+    } 
+
 
     setKey(keyObj) {
         this.key = keyObj;
@@ -78,7 +74,7 @@ class HMAC {
         const classObj = this;
         const keyEnc = this.convertInput(key, type);
         if (keyEnc.length < this.blockSize) {
-            warning(`WARNING: Your provided key-length is '${keyEnc.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.algorithm}.\nIt will work, but this is not secure.`);
+            warning(`WARNING: Your provided key-length is '${keyEnc.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.digestmod}.\nIt will work, but this is not secure.`);
         }
         this.keyIsExportable = allowExports;
         
@@ -87,7 +83,7 @@ class HMAC {
             keyEnc,
             {
                 name: "HMAC",
-                hash: {name: this.algorithm}
+                hash: {name: this.digestmod}
             },
             allowExports,
             ["sign", "verify"]
@@ -103,7 +99,7 @@ class HMAC {
         window.crypto.subtle.generateKey(
             {
               name: "HMAC",
-              hash: {name: this.algorithm}
+              hash: {name: this.digestmod}
             },
             allowExports,
             ["sign", "verify"]
@@ -134,7 +130,7 @@ class HMAC {
         window.crypto.subtle.sign(
             {
                 name: "HMAC",
-                hash: {name: this.algorithm}
+                hash: {name: this.digestmod}
             },
             this.key,
             dataEnc
@@ -191,112 +187,73 @@ class HMAC {
     }
 }
 
-class CryptoSubtle {
-    async importKey(key, type="str", allowExports=false) {
-        const classObj = this;
-        const keyEnc = this.convertInput(key, type);
-        if (keyEnc.length < this.blockSize) {
-            warning(`WARNING: Your provided key-length is '${keyEnc.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.algorithm}.\nIt will work, but this is not secure.`);
+const CryptoSubtle = {
+
+    importKey: async (key, digestmod, permitExports=false) => {
+        if (!key) {
+            throw new TypeError("Missing required parameter 'key'.");
         }
-        this.keyIsExportable = allowExports;
-        
-        crypto.subtle.importKey(
+        return crypto.subtle.importKey(
             "raw",
-            keyEnc,
+            key,
             {
                 name: "HMAC",
-                hash: {name: this.algorithm}
+                hash: {name: digestmod}
             },
-            allowExports,
+            permitExports,
             ["sign", "verify"]
-        ).then(
-            keyObj => classObj.setKey(keyObj)
         );
-    }
+    },
 
-    async generateKey(allowExports=false) {
-        const classObj = this;
-        this.keyIsExportable = allowExports;
-
-        window.crypto.subtle.generateKey(
+    generateKey: async (digestmod, permitExports=false) => {
+        return await window.crypto.subtle.generateKey(
             {
               name: "HMAC",
-              hash: {name: this.algorithm}
+              hash: {name: digestmod}
             },
-            allowExports,
+            permitExports,
             ["sign", "verify"]
-        ).then(
-            keyObj => classObj.setKey(keyObj)
         );
-    }
+    },
 
-    async exportKey() {
-        if (this.key === null) {
-            throw new Error("Key is unset.");
-        }
-        if (!this.keyIsExportable) {
+    exportKey: async (key) => {
+        if (!key.extractable) {
             throw new PermissionError("Key exports are not allowed. You have to set this before key-generation.");
         }
-        const keyBuffer = await window.crypto.subtle.exportKey("raw", this.key);
-        const keyObj = {
-            array: Array.from(new Uint8Array(keyBuffer))
-        }
-        return this.appendObjConversions(keyObj);
-    }
+        return await window.crypto.subtle.exportKey("raw", key);
+    },
 
-    async sign(data, type="str") {
-        const dataEnc = this.convertInput(data, type);
-        if (this.key === null) {
-            throw new Error('No key is assigned yet. Import or generate a key.');
-        } 
-        window.crypto.subtle.sign(
+    sign: async (msg, key) => { 
+        return await window.crypto.subtle.sign(
             {
                 name: "HMAC",
-                hash: {name: this.algorithm}
+                hash: key.digestmod.hash
             },
-            this.key,
-            dataEnc
-        ).then(
-            signature => this.signature = signature
+            key,
+            msg
         );
-    }
+    },
 
-    async verify(data, type="str") { // FIXME: not only data but signature as input 
-        const dataEnc = this.convertInput(data, type);
-        if (this.key === null) {
-            throw new Error('No key is assigned yet. Import or generate a key.');
-        }
-        if (this.signature === null) {
-            throw new Error('No signature is assigned yet. Sign your data before verifying.');
-        }
-        const isValid = await window.crypto.subtle.verify(
+    verify: async (msg, signature, key) => {  
+        return await window.crypto.subtle.verify(
             "HMAC",
-            this.key,
-            this.signature,
-            dataEnc
+            key,
+            signature,
+            msg
         );
-        return isValid;
-    }
+    },
 }
 
 
 class Main {
     constructor() {
+        this.CryptoSubtle = CryptoSubtle;
         this.HMAC = HMAC;
-
     }
 
     converters() {
         warning("Converters are not initialized");
         return false;
-    }
-
-    trans5C(byteArray) {
-        return translateBytes(byteArray, 0x5C);
-    }
-
-    trans36(byteArray) {
-        return translateBytes(byteArray, 0x36);
     }
 
 }
