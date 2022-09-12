@@ -7,6 +7,8 @@
     "example": "examples"
   },
   "scripts": {
+    "lint": "eslint ./src/*",
+    "start": "http-server -a localhost -o ./examples/demo.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,5 +20,10 @@
   "bugs": {
     "url": "https://github.com/UmamiAppearance/BrowserHMACObject/issues"
   },
-  "homepage": "https://github.com/UmamiAppearance/BrowserHMACObject#readme"
+  "homepage": "https://github.com/UmamiAppearance/BrowserHMACObject#readme",
+  "devDependencies": {
+    "base-ex": "^0.4.0",
+    "eslint": "^8.23.1",
+    "http-server": "^14.1.1"
+  }
 }

@@ -1,3 +1,5 @@
+import { BaseEx } from "../node_modules/base-ex/src/base-ex.js";
+
 class PermissionError extends Error {
     constructor(message) {
         super(message);
@@ -37,6 +39,8 @@ class HMAC {
         // set digestmod
         this.digestmod = digestmod;
         this.msg = new Array();
+
+        this.converters = new BaseEx("bytes");
 
     }
 
