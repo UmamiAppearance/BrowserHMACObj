@@ -236,10 +236,17 @@ class BrowserHMACObj {
         return this.#digest;
     }
 
-    async sign(msg) {
+    async sign(msg, base=null) {
         this.#testKeyAvail();
+        
         msg = this.#ensureBytes(msg);
-        return await cryptoSubtle.sign(msg, this.#key);
+        const buffer = await cryptoSubtle.sign(msg, this.#key);
+        
+        if (base !== null) {
+            return this.#convert(buffer, base);
+        }
+        
+        return buffer;
     }
 
     async verify(msg, signature) { 
@@ -251,6 +258,12 @@ class BrowserHMACObj {
         }
         const isValid = await cryptoSubtle.verify(msg, signature, this.#key);
         return isValid;
+    }
+
+    #convert(buffer, base) {
+        const decapitalize = str => str.charAt(0).toLowerCase().concat(str.slice(1));    
+        base = decapitalize(base.replace(/^to/, ""));
+        return BASE_EX[base].encode(buffer);
     }
 
     /**
