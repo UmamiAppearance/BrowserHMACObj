@@ -21,7 +21,7 @@ class HMAC {
     constructor(digestmod) {
 
         if (!digestmod) {
-            throw new TypeError("Missing required parameter 'digestmod'.")
+            throw new TypeError("Missing required parameter 'digestmod'.");
         }
 
         // Simplify the input for the user - sha1, Sha-256...
@@ -102,8 +102,8 @@ class HMAC {
 
         window.crypto.subtle.generateKey(
             {
-              name: "HMAC",
-              hash: {name: this.digestmod}
+                name: "HMAC",
+                hash: {name: this.digestmod}
             },
             allowExports,
             ["sign", "verify"]
@@ -122,14 +122,14 @@ class HMAC {
         const keyBuffer = await window.crypto.subtle.exportKey("raw", this.key);
         const keyObj = {
             array: Array.from(new Uint8Array(keyBuffer))
-        }
+        };
         return this.appendObjConversions(keyObj);
     }
 
     async sign(data, type="str") {
         const dataEnc = this.convertInput(data, type);
         if (this.key === null) {
-            throw new Error('No key is assigned yet. Import or generate a key.');
+            throw new Error("No key is assigned yet. Import or generate a key.");
         } 
         window.crypto.subtle.sign(
             {
@@ -146,10 +146,10 @@ class HMAC {
     async verify(data, type="str") { // FIXME: not only data but signature as input 
         const dataEnc = this.convertInput(data, type);
         if (this.key === null) {
-            throw new Error('No key is assigned yet. Import or generate a key.');
+            throw new Error("No key is assigned yet. Import or generate a key.");
         }
         if (this.signature === null) {
-            throw new Error('No signature is assigned yet. Sign your data before verifying.');
+            throw new Error("No signature is assigned yet. Sign your data before verifying.");
         }
         const isValid = await window.crypto.subtle.verify(
             "HMAC",
@@ -212,8 +212,8 @@ const CryptoSubtle = {
     generateKey: async (digestmod, permitExports=false) => {
         return await window.crypto.subtle.generateKey(
             {
-              name: "HMAC",
-              hash: {name: digestmod}
+                name: "HMAC",
+                hash: {name: digestmod}
             },
             permitExports,
             ["sign", "verify"]
@@ -246,7 +246,7 @@ const CryptoSubtle = {
             msg
         );
     },
-}
+};
 
 
 class Main {
