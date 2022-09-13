@@ -5,12 +5,11 @@ class PermissionError extends Error {
     }
 }
 
-const crypto = {
+const cryptoSubtle = {
 
-    importKey: async (key, digestmod, permitExports=false) => {
-        console.log(key);
+    importKey: async (key, digestmod, format="raw", permitExports=false) => {
         return await window.crypto.subtle.importKey(
-            "raw",
+            format,
             key,
             {
                 name: "HMAC",
@@ -32,11 +31,11 @@ const crypto = {
         );
     },
 
-    exportKey: async (key) => {
+    exportKey: async (key, format="raw") => {
         if (!key.extractable) {
-            throw new PermissionError("Key exports are not allowed. You have to set this before key-generation.");
+            throw new PermissionError("Key exports are not allowed. You can permit this during key-generation.");
         }
-        return await window.crypto.subtle.exportKey("raw", key);
+        return await window.crypto.subtle.exportKey(format, key);
     },
 
     sign: async (msg, key) => { 
@@ -60,4 +59,4 @@ const crypto = {
     },
 };
 
-export { crypto, PermissionError };
+export { cryptoSubtle, PermissionError };

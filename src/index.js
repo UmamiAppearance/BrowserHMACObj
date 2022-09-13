@@ -1,142 +1,290 @@
-import { crypto, PermissionError } from "./crypto.js";
+import { cryptoSubtle, PermissionError } from "./crypto.js";
 import { BaseEx } from "../node_modules/base-ex/src/base-ex.js";
 
 
-const ALGORITHMS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+const DIGESTMODS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 const BASE_EX = new BaseEx();
+const KEY_FORMATS = ["raw", "pkcs8", "spki", "jwk"];
 
 
 class BrowserHMACObj {
-    constructor(digestmod) {
+    #bits = null;
+    #digest = null;
+    #digestmod = null;
+    #input = [];
+    #key = null;
+    #keyFormats = BrowserHMACObj.keyFormats();
+
+    constructor(digestmod="") {
 
         if (!digestmod) {
             throw new TypeError("Missing required parameter 'digestmod'.");
         }
 
-        // Simplify the input for the user - sha1, Sha-256...
-        // everything is fine, even 384 by itself, as long
-        // as the numbers match to the provided digestmods.
-        const version = String(digestmod).match(/[0-9]+/)[0];
-        digestmod = `SHA-${version}`;
-        if (!ALGORITHMS.includes(digestmod)) {
-            throw new TypeError(`Invalid digestmod.\nValid arguments are: "${ALGORITHMS.join(", ")}".`);
+        const digestmods = this.constructor.digestmodsAvailable();
+        
+        this.#bits = String(digestmod).match(/[0-9]+/)[0]|0;
+        this.blockSize = this.#bits > 256 ? 128 : 64;
+        this.#digestmod = `SHA-${this.#bits}`;
+
+        // convert sha1 to its actual 160 bits
+        this.#bits = Math.min(160, this.#bits);
+
+        if (!digestmods.has(this.#digestmod)) {
+            throw new TypeError(`Available digestmod are: '${DIGESTMODS.join(", ")}'.`);
         }
 
-        // set the block-size (64 for SHA-1 & SHA-256 / 128 for SHA-384 & SHA-512)
-        this.blockSize = (parseInt(version, 10) < 384) ? 64 : 128;
-
-        // set digestmod
-        this.digestmod = digestmod;
-        this.msg = new Array();
-
-        this.converters = BASE_EX;
-
+        this.#addConverters();
     }
 
-    async init(msg, key="auto") {
-        if (key === "auto") {
-            console.warn("No key was specified. It is generated for you and exportable. If you don't want this behaviour, pass a key as second argument to this call.");
-            crypto.generateKey(this.digestmod, true).then(freshKey => this.key = freshKey);
-        } else {
-            this.key = key;
+    /**
+     * Static method to receive information about the 
+     * available digestmod.
+     * @returns {set} - A set of available digestmod.
+     */
+    static digestmodsAvailable() {
+        return new Set(DIGESTMODS);
+    }
+
+    static keyFormats() {
+        return new Set(KEY_FORMATS);
+    }
+
+    static async compareDigest(a, b) {
+
+        if (typeof a === "undefined" || typeof b === "undefined") {
+            throw new Error("BrowserSHAobj.compareDigest takes exactly two positional arguments");
         }
-        await this.update();
+
+        a = BASE_EX.byteConverter.encode(a);
+        b = BASE_EX.byteConverter.encode(b);
+        
+        const dMod = "SHA-1";
+
+        const keyA = await cryptoSubtle.importKey(a, dMod, "raw", false);
+        const keyB = await cryptoSubtle.importKey(b, dMod, "raw", false);
+
+        const msg = new Uint8Array([ 104, 101, 108, 108, 111, 33 ]);
+
+        const shaObjA = await this.new(
+            keyA,
+            msg,
+            dMod,
+            "object"
+        );
+        
+        const equality = await cryptoSubtle.verify(msg, shaObjA.digest(), keyB);
+
+        return equality;
     }
 
-    async update(msg) {
-        this.msg = this.msg.concat(msg);
-        this.current = await crypto.sign(this.msg, this.key);
+
+    /**
+     * Asynchronously creates a new instance.
+     * Additionally key and input can be provided, which 
+     * gets passed to the 'update' method.
+     * @param {string|number} algorithm - The parameter must contain one of the numbers (1/256/384/512), eg: SHA-1, sha256, 384, ... 
+     * @param {*} input - Input gets converted to bytes and processed by window.crypto.subtle.digest. 
+     * @returns {Object} - A SHAObj instance.
+     */
+    static async new(key=null, msg=null, digestmod="", keyFormat="raw", permitExports=false) {
+        
+        const hmacObj = new BrowserHMACObj(digestmod);
+
+        if (key) {
+            if (keyFormat === "object") {
+                hmacObj.setKey(key);
+            } else {
+                await hmacObj.importKey(key, keyFormat, permitExports);
+            }
+        }
+
+        if (msg !== null) {
+            if (!key) {
+                await hmacObj.generateKey();
+            }
+            await hmacObj.update(msg);
+        }
+        return hmacObj;
     }
 
-    toBytes(input) {
-        return BASE_EX.byteConverter.encode(input, "uint8");
+    /***
+     * The size of the resulting hash in bytes.
+     */
+    get digestSize() {
+        return this.#bits / 8;
+    }
+
+
+    /**
+     * The canonical name of this hash, always uppercase and
+     * always suitable as a parameter to create another hash
+     * of this type.
+     */
+    get name() {
+        return "HMAC-" + this.#digestmod;
+    }
+
+    #ensureBytes(input) {
+        return BASE_EX.byteConverter.encode(input, "bytes");
     } 
 
     setKey(keyObj) {
-        this.key = keyObj;
-        this.signature = null;      // reset signature
+        this.#key = keyObj;
+        this.#digest = null;
     }
 
-    async importKey(key, permitExports=false) {
-        key = this.toBytes(key);
-        if (key.byteLength < this.blockSize) {
-            console.warn(`Your provided key-length is '${key.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.digestmod}.\nIt will work, but this is not secure.`);
+    #testFormat(format) {
+        if (!this.#keyFormats.has(format)) { 
+            return new TypeError(
+                `Invalid key format '${format}'\n\nValid formats are: ${KEY_FORMATS.join(", ")}`
+            );
+        }
+    }
+
+    async update(input, replace=false) {
+        input = this.#ensureBytes(input);
+        
+        if (replace) {
+            this.#input = Array.from(input);
+        } else {
+            this.#input = this.#input.concat(Array.from(input));
+        }
+        
+        this.#digest = await cryptoSubtle.sign(
+            Uint8Array.from(this.#input),
+            this.#key
+        );
+    }
+
+    /**
+     * Shortcut to 'update(input, true)'.
+     * @param {*} input - Input gets converted to bytes and processed by window.crypto.subtle.digest. 
+     */
+    async replace(input) {
+        await this.update(input, true);
+    }
+
+    async importKey(key, format="raw", permitExports=false) {
+        
+        if (format === "raw") {
+            key = this.#ensureBytes(key);
+            
+            if (key.byteLength < this.blockSize) {
+                console.warn(`Your provided key-length is '${key.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.#digestmod}.\nIt will work, but this is not secure.`);
+            }
+        } else {
+            this.#testFormat(format);
         }
         this.keyIsExportable = permitExports;
         
-        const keyObj = await crypto.importKey(key, this.digestmod, permitExports);
+        const keyObj = await cryptoSubtle.importKey(key, this.#digestmod, format, permitExports);
         this.setKey(keyObj);
 
     }
 
-    async generateKey(permitExports=false) {
+    static async generateKey(digestmod="", permitExports=false) {
+        return await cryptoSubtle.generateKey(digestmod, permitExports);
+    }
+
+    async generateKey(permitExports=true) {
         this.keyIsExportable = Boolean(permitExports);
-        const keyObj = await crypto.generateKey(this.digestmod, this.keyIsExportable);
+        const keyObj = await cryptoSubtle.generateKey(this.#digestmod, this.keyIsExportable);
         this.setKey(keyObj);
     }
 
-    async exportKey() {
-        if (this.key === null) {
+    async exportKey(format="raw") {
+        
+        this.#testFormat(format);
+        
+        if (this.#key === null) {
             throw new Error("Key is unset.");
         }
+        
         if (!this.keyIsExportable) {
-            throw new PermissionError("Key exports are not allowed. You have to set this before key-generation.");
+            throw new PermissionError("Key exports are not allowed. You have to permit this before key-generation.");
         }
-        const keyBuffer = await crypto.exportKey(this.key);
-        const keyObj = {
-            array: Array.from(new Uint8Array(keyBuffer))
-        };
-        return this.appendObjConversions(keyObj);
+        
+        const key = await cryptoSubtle.exportKey(this.#key, format);
+        return key;
+    }
+
+    async copy() {
+        return await BrowserHMACObj.new(
+            this.#key,
+            Uint8Array.from(this.#input),
+            this.#digestmod,
+            "object",
+            this.keyIsExportable
+        );
+    }
+
+
+    /**
+     * Returns the current digest as an ArrayBuffer;
+     * @returns {ArrayBuffer}
+     */
+    digest() {
+        return this.#digest;
     }
 
     async sign(data) {
-        if (this.key === null) {
+        if (this.#key === null) {
             throw new Error("No key is assigned yet. Import or generate a key.");
         }
-        data = this.toBytes(data);
-        this.signature = await crypto.sign(data, this.key);
+        data = this.#ensureBytes(data);
+        return await cryptoSubtle.sign(data, this.#key);
     }
 
-    async verify(data, signature=null) { 
-        data = this.toBytes(data);
-        if (this.key === null) {
+    async verify(msg, signature) { 
+        msg = this.#ensureBytes(msg);
+        if (this.#key === null) {
             throw new Error("No key is assigned yet. Import or generate a key.");
         }
         if (this.signature === null) {
-            signature = this.signature;
+            throw new TypeError("Signature must be provided");
         }
-        const isValid = await crypto.verify(data, signature, this.key);
+        const isValid = await cryptoSubtle.verify(msg, signature, this.#key);
         return isValid;
     }
 
-    getSignature() {
-        if (this.signature === null) {
-            return null;
-        }
-        const signatureObj = {
-            array: Array.from(new Uint8Array(this.signature))
-        };
-        return this.appendObjConversions(signatureObj);
-    }
-
-    appendObjConversions(obj) {
-        /*
-            Appends BaseEx encoders to the returned object for the ability
-            to covert the byte array to many representations.
-        */
-
-        if (!obj.array) throw new Error("No signature associated to this object.");
-
+    /**
+     * Appends BaseEx encoders to the returned object for the ability
+     * to covert the byte array of a hash to many representations.
+     */
+    #addConverters() {
+        
+        const detach = (arr, str) => arr.splice(arr.indexOf(str), 1);
         const capitalize = str => str.charAt(0).toUpperCase().concat(str.slice(1));
 
-        obj.toHex = () => this.converters.base16.encode(obj.array);
-        const converters = Object.keys(this.converters).slice(1);
+        this.hexdigest = () => this.#digest
+            ? BASE_EX.base16.encode(this.#digest)
+            : null;
+        
+        const converters = Object.keys(BASE_EX);
+        this.basedigest = {
+            toSimpleBase: {}
+        };
+
+        detach(converters, "base1");
+        detach(converters, "byteConverter");
+        detach(converters, "simpleBase");
+
         for (const converter of converters) {
-            obj[`to${capitalize(converter)}`] = () => this.converters[converter].encode(obj.array);
+            this.basedigest[`to${capitalize(converter)}`] = () => this.#digest 
+                ? BASE_EX[converter].encode(this.#digest)
+                : null;
         }
 
-        return obj;
-        
+        for (const converter in BASE_EX.simpleBase) {
+            this.basedigest.toSimpleBase[capitalize(converter)] = () => this.#digest
+                ? BASE_EX.simpleBase[converter].encode(this.#digest)
+                : null;
+        }
+
+        this.basedigest.toBytes = () => this.#digest
+            ? BASE_EX.byteConverter.encode(this.#digest)
+            : null;
     }
 }
 
