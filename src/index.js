@@ -129,11 +129,6 @@ class BrowserHMACObj {
         return BASE_EX.byteConverter.encode(input, "bytes");
     } 
 
-    setKey(keyObj) {
-        this.#key = keyObj;
-        this.#digest = null;
-    }
-
     #testFormat(format) {
         if (!this.#keyFormats.has(format)) { 
             return new TypeError(
@@ -142,8 +137,16 @@ class BrowserHMACObj {
         }
     }
 
+    #testKeyAvail() {
+        if (this.#key === null) {
+            throw new Error("No key is assigned yet. Import or generate key.");
+        }
+    }
+
     async update(input, replace=false) {
         input = this.#ensureBytes(input);
+        
+        this.#testKeyAvail();
         
         if (replace) {
             this.#input = Array.from(input);
@@ -163,6 +166,11 @@ class BrowserHMACObj {
      */
     async replace(input) {
         await this.update(input, true);
+    }
+
+    setKey(keyObj) {
+        this.#key = keyObj;
+        this.#digest = null;
     }
 
     async importKey(key, format="raw", permitExports=false) {
@@ -228,19 +236,16 @@ class BrowserHMACObj {
         return this.#digest;
     }
 
-    async sign(data) {
-        if (this.#key === null) {
-            throw new Error("No key is assigned yet. Import or generate a key.");
-        }
-        data = this.#ensureBytes(data);
-        return await cryptoSubtle.sign(data, this.#key);
+    async sign(msg) {
+        this.#testKeyAvail();
+        msg = this.#ensureBytes(msg);
+        return await cryptoSubtle.sign(msg, this.#key);
     }
 
     async verify(msg, signature) { 
         msg = this.#ensureBytes(msg);
-        if (this.#key === null) {
-            throw new Error("No key is assigned yet. Import or generate a key.");
-        }
+        this.#testKeyAvail();
+
         if (this.signature === null) {
             throw new TypeError("Signature must be provided");
         }
