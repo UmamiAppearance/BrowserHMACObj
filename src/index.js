@@ -53,7 +53,7 @@ class BrowserHMACObj {
     static async compareDigest(a, b) {
 
         if (typeof a === "undefined" || typeof b === "undefined") {
-            throw new Error("BrowserSHAobj.compareDigest takes exactly two positional arguments");
+            throw new Error("BrowserSHAobj.compareDigest takes exactly two positional arguments.");
         }
 
         a = BASE_EX.byteConverter.encode(a);

@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/UmamiAppearance/BrowserHMACObject#readme",
   "devDependencies": {
-    "base-ex": "^0.4.0",
+    "base-ex": "^0.4.1",
     "eslint": "^8.23.1",
     "http-server": "^14.1.1",
     "rollup": "^2.79.0",
