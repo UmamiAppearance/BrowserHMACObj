@@ -50,32 +50,39 @@ class BrowserHMACObj {
         return new Set(KEY_FORMATS);
     }
 
-    static async compareDigest(a, b) {
+    static compareDigest(a, b) {
 
         if (typeof a === "undefined" || typeof b === "undefined") {
             throw new Error("BrowserSHAobj.compareDigest takes exactly two positional arguments.");
         }
 
-        a = BASE_EX.byteConverter.encode(a);
-        b = BASE_EX.byteConverter.encode(b);
+        a = BASE_EX.byteConverter.encode(a, "uint8");
+        b = BASE_EX.byteConverter.encode(b, "uint8");
+
+        // select the greater array
+        let A, B; 
+        if (a.byteLength > b.byteLength) {
+            A = a;
+            B = b;
+        } else {
+            A = b;
+            B = a;
+        }
+
+        // Walk through the greater (or equally sized) array and
+        // compare each value with the value at the corresponding
+        // index. (If B is smaller it will return undefined at a
+        // certain point).
+        const test = A.map((byte, i) => {
+            return byte === B.at(i);
+        });
+
+        // Only if every value is true the result of the 
+        // reduced array will be 1. If one value is false
+        // the result will be zero.
+        const passed = Boolean(test.reduce((x, y) => x*y));
         
-        const dMod = "SHA-1";
-
-        const keyA = await cryptoSubtle.importKey(a, dMod, "raw", false);
-        const keyB = await cryptoSubtle.importKey(b, dMod, "raw", false);
-
-        const msg = new Uint8Array([ 104, 101, 108, 108, 111, 33 ]);
-
-        const shaObjA = await this.new(
-            keyA,
-            msg,
-            dMod,
-            "object"
-        );
-        
-        const equality = await cryptoSubtle.verify(msg, shaObjA.digest(), keyB);
-
-        return equality;
+        return passed;
     }
 
 
