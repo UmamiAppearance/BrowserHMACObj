@@ -16,8 +16,9 @@ const KEY_FORMATS = ["raw", "jwk"];
 
 /**
  * Creates a HMAC-SHA-(1-512) object for the browser.
- * It is very closely related to pythons hashlib
- * in its methods and features.
+ * It is very closely related to pythons hmac library
+ * in its methods and features but with many extras.
+ * 
  * It provides an easy access to the browsers Crypto.subtle
  * method, and also makes it possible to get multiple
  * different digest methods.
@@ -144,7 +145,7 @@ class BrowserHMACObj {
 
         if (key) {
             if (keyFormat === "object") {
-                hmacObj.setKey(key);
+                await hmacObj.setKey(key);
             } else {
                 await hmacObj.importKey(key, keyFormat, permitExports);
             }
@@ -302,9 +303,16 @@ class BrowserHMACObj {
      * Method to replace the assigned Crypto Key.
      * @param {Object} keyObj - The new Crypto Key. 
      */
-    setKey(keyObj) {
+    async setKey(keyObj) {
         this.#key = keyObj;
-        this.#digest = null;
+
+        if (this.#input.length) {
+            console.warn("A new crypto key was established. A fresh digest is now getting calculated.");
+            this.#digest = await cryptoSubtle.sign(
+                Uint8Array.from(this.#input),
+                this.#key
+            );
+        }
     }
 
 
@@ -329,7 +337,7 @@ class BrowserHMACObj {
         this.#keyIsExportable = permitExports;
         
         const keyObj = await cryptoSubtle.importKey(key, this.#digestmod, format, permitExports);
-        this.setKey(keyObj);
+        await this.setKey(keyObj);
 
     }
 
@@ -342,7 +350,7 @@ class BrowserHMACObj {
     async generateKey(permitExports=true) {
         this.#keyIsExportable = Boolean(permitExports);
         const keyObj = await cryptoSubtle.generateKey(this.#digestmod, this.#keyIsExportable);
-        this.setKey(keyObj);
+        await this.setKey(keyObj);
     }
 
 
