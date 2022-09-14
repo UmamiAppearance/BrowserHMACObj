@@ -59,4 +59,29 @@ const cryptoSubtle = {
     },
 };
 
-export { cryptoSubtle, PermissionError };
+const getDigestModFromParam = (digestmod, digestmods) => {
+        
+    if (!digestmod) {
+        throw new TypeError("Missing required parameter 'digestmod'.");
+    }
+
+    let bits = [].concat(String(digestmod).match(/[0-9]+/)).at(0)|0;
+    digestmod = `SHA-${bits}`;
+
+    if (!digestmods.includes(digestmod)) {
+        throw new TypeError(`Available digestmod are: '${digestmods.join(", ")}'.`);
+    }
+
+    if (bits === 1) {
+        bits = 160;
+    }
+
+    return [ digestmod, bits ];
+};
+
+
+export {
+    cryptoSubtle,
+    getDigestModFromParam,
+    PermissionError
+};

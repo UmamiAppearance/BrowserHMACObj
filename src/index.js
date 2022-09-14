@@ -1,10 +1,10 @@
-import { cryptoSubtle, PermissionError } from "./crypto.js";
+import { cryptoSubtle, getDigestModFromParam, PermissionError } from "./helpers.js";
 import { BaseEx } from "../node_modules/base-ex/src/base-ex.js";
 
 
 const DIGESTMODS = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 const BASE_EX = new BaseEx();
-const KEY_FORMATS = ["raw", "pkcs8", "spki", "jwk"];
+const KEY_FORMATS = ["raw", "jwk"];
 
 
 class BrowserHMACObj {
@@ -13,27 +13,11 @@ class BrowserHMACObj {
     #digestmod = null;
     #input = [];
     #key = null;
-    #keyFormats = BrowserHMACObj.keyFormats();
+    #keyFormats = this.constructor.keyFormats();
+    #keyIsExportable = null;
 
     constructor(digestmod="") {
-
-        if (!digestmod) {
-            throw new TypeError("Missing required parameter 'digestmod'.");
-        }
-
-        const digestmods = this.constructor.digestmodsAvailable();
-        
-        this.#bits = String(digestmod).match(/[0-9]+/)[0]|0;
-        this.blockSize = this.#bits > 256 ? 128 : 64;
-        this.#digestmod = `SHA-${this.#bits}`;
-
-        // convert sha1 to its actual 160 bits
-        this.#bits = Math.min(160, this.#bits);
-
-        if (!digestmods.has(this.#digestmod)) {
-            throw new TypeError(`Available digestmod are: '${DIGESTMODS.join(", ")}'.`);
-        }
-
+        [ this.#digestmod, this.#bits ] = getDigestModFromParam(digestmod, DIGESTMODS);
         this.#addConverters();
     }
 
@@ -96,7 +80,7 @@ class BrowserHMACObj {
      */
     static async new(key=null, msg=null, digestmod="", keyFormat="raw", permitExports=false) {
         
-        const hmacObj = new BrowserHMACObj(digestmod);
+        const hmacObj = new this(digestmod);
 
         if (key) {
             if (keyFormat === "object") {
@@ -109,17 +93,22 @@ class BrowserHMACObj {
         if (msg !== null) {
             if (!key) {
                 await hmacObj.generateKey();
+                console.warn("A message but no key was provided. The key was generated for you.");
             }
             await hmacObj.update(msg);
         }
         return hmacObj;
     }
 
-    /***
+    /**
      * The size of the resulting hash in bytes.
      */
     get digestSize() {
         return this.#bits / 8;
+    }
+
+    get blockSize() {
+        return this.#bits > 256 ? 128 : 64;
     }
 
 
@@ -138,7 +127,7 @@ class BrowserHMACObj {
 
     #testFormat(format) {
         if (!this.#keyFormats.has(format)) { 
-            return new TypeError(
+            throw new TypeError(
                 `Invalid key format '${format}'\n\nValid formats are: ${KEY_FORMATS.join(", ")}`
             );
         }
@@ -191,7 +180,7 @@ class BrowserHMACObj {
         } else {
             this.#testFormat(format);
         }
-        this.keyIsExportable = permitExports;
+        this.#keyIsExportable = permitExports;
         
         const keyObj = await cryptoSubtle.importKey(key, this.#digestmod, format, permitExports);
         this.setKey(keyObj);
@@ -199,12 +188,13 @@ class BrowserHMACObj {
     }
 
     static async generateKey(digestmod="", permitExports=false) {
+        digestmod = getDigestModFromParam(digestmod, DIGESTMODS).at(0);
         return await cryptoSubtle.generateKey(digestmod, permitExports);
     }
 
     async generateKey(permitExports=true) {
-        this.keyIsExportable = Boolean(permitExports);
-        const keyObj = await cryptoSubtle.generateKey(this.#digestmod, this.keyIsExportable);
+        this.#keyIsExportable = Boolean(permitExports);
+        const keyObj = await cryptoSubtle.generateKey(this.#digestmod, this.#keyIsExportable);
         this.setKey(keyObj);
     }
 
@@ -216,7 +206,7 @@ class BrowserHMACObj {
             throw new Error("Key is unset.");
         }
         
-        if (!this.keyIsExportable) {
+        if (!this.#keyIsExportable) {
             throw new PermissionError("Key exports are not allowed. You have to permit this before key-generation.");
         }
         
@@ -225,12 +215,12 @@ class BrowserHMACObj {
     }
 
     async copy() {
-        return await BrowserHMACObj.new(
+        return await this.constructor.new(
             this.#key,
-            Uint8Array.from(this.#input),
+            this.#input.length ? Uint8Array.from(this.#input) : null,
             this.#digestmod,
             "object",
-            this.keyIsExportable
+            this.#keyIsExportable
         );
     }
 
@@ -269,7 +259,32 @@ class BrowserHMACObj {
 
     #convert(buffer, base) {
         const decapitalize = str => str.charAt(0).toLowerCase().concat(str.slice(1));    
+        const keywordError = () => {
+            throw new TypeError("Invalid base conversion keyword.");
+        };
         base = decapitalize(base.replace(/^to/, ""));
+        
+        if (base === "hex" || base == "hexdigest") {
+            base = "base16";
+        }
+
+        else if (base === "bytes") {
+            base = "byteConverter";
+        }
+
+        else if ((/SimpleBase/i).test(base)) {
+            base = `base${[].concat(String(base).match(/[0-9]+/)).at(0)|0}`;
+            if (!(base in BASE_EX.simpleBase)) {
+                keywordError();
+            }
+            return BASE_EX.simpleBase[base].encode(buffer); 
+        }
+        
+
+        if (!(base in BASE_EX)) {
+            keywordError();
+        }
+
         return BASE_EX[base].encode(buffer);
     }
 
@@ -313,4 +328,7 @@ class BrowserHMACObj {
     }
 }
 
-export default BrowserHMACObj;
+export {
+    BrowserHMACObj as default,
+    BASE_EX as baseEx
+};
