@@ -43,7 +43,7 @@ class BrowserHMACObj {
         a = BASE_EX.byteConverter.encode(a, "uint8");
         b = BASE_EX.byteConverter.encode(b, "uint8");
 
-        // select the greater array
+        // set the greater array as 'A'
         let A, B; 
         if (a.byteLength > b.byteLength) {
             A = a;
