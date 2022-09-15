@@ -25,7 +25,7 @@ const KEY_FORMATS = ["raw", "jwk"];
  * 
  * @see: https://docs.python.org/3/library/hmac.html
  */
-class BrowserHMACObj {
+export default class BrowserHMACObj {
 
     #bits = null;
     #digest = null;
@@ -484,8 +484,3 @@ class BrowserHMACObj {
     }
 
 }
-
-export {
-    BrowserHMACObj as default,
-    BASE_EX as baseEx
-};
