@@ -2966,10 +2966,6 @@ class BrowserHMACObj {
         
         if (format === "raw") {
             key = this.#ensureBytes(key);
-            
-            if (key.byteLength < this.blockSize) {
-                console.warn(`Your provided key-length is '${key.length}'.\n\nThis is less than blocksize of ${this.blockSize} used by ${this.#digestmod}.\nIt will work, but this is not secure.`);
-            }
         } else {
             this.#testFormat(format);
         }

@@ -20,12 +20,7 @@ test.makeUnit(
     "Simple key and message combination.",
     "6fa7b4dea28ee348df10f9bb595ad985ff150a4adfd6131cca677d9acee07dc6",
     async () => {
-        const warn = console.warn.bind(console);
-        
-        // ignore key warning (yes, it is too short)
-        console.warn = () => null;
         const hmacObj = await BrowserHMACObj.new("secret", "Hello World!", "SHA-256");
-        console.warn = warn;
         
         return hmacObj.hexdigest();
     }
