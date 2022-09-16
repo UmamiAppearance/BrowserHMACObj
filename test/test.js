@@ -67,7 +67,6 @@ test.makeUnit(
     }
 );
 
-
 test.makeUnit(
     "Input concatenation, single signing and digest comparison.",
     true,
@@ -97,5 +96,23 @@ test.makeUnit(
     } 
 );
 
+test.makeUnit(
+    "Create external secret key, assign it to instance and test 'verify' method.",
+    true,
+    async () => {
+        const key = await BrowserHMACObj.generateKey("SHA-512");
+        const msg = "Hello World!";
+        const h = await BrowserHMACObj.new(key, msg, "SHA-512", "object");
+        
+        const wrongSignature = new TextEncoder().encode("abc123"); 
+        const correctSignature = h.digest();
+
+        if (await h.verify(msg, wrongSignature) === true) {
+            return false;
+        }
+
+        return await h.verify(msg, correctSignature);
+    }
+);
 
 test.init();
