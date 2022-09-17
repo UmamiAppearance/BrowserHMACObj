@@ -11,7 +11,7 @@
     "build": "rollup -c",
     "lint": "eslint ./src/*",
     "lint:fix": "eslint ./src/* --fix",
-    "start": "http-server -a localhost -o ./examples/demo.html",
+    "start": "http-server -a localhost -o ./examples/live-examples.html",
     "test": "no-bro-cote"
   },
   "repository": {
