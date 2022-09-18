@@ -10,19 +10,38 @@
         <title>BrowserHMACObj - Online HMAC Generator</title>
 
         <script type="module">
-            //import BrowserSHAObj from "../../src/index.js";
-            import BrowserSHAObj from "../dist/BrowserHMACObj.esm.min.js";
+            import BrowserHMACObj from "../../src/index.js";
+            //import BrowserHMACObj from "../dist/BrowserHMACObj.esm.min.js";
             
-            import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.prod.js";
-            //import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.js";
+            //import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.prod.js";
+            import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.js";
 
-            const Data = {};
+            const Data = {
+                cryptoKey: null,
+                digestmod: "SHA-256",
+                digestmods: BrowserHMACObj.digestmodsAvailable(),
+                input: "Hello World!"
+            };
+
+            const h = new BrowserHMACObj(Data.digestmod);
+
+            let bytes = [];
+            while (bytes.length < 32) {
+                bytes.push(...h.baseEx.simpleBase.base36.encode(Math.random(), "upper"));
+            }
+            Data.cryptoKey = bytes.join("");           
             
             // vue definitions
             const app = createApp({
                 data() {
                     return Data;
                 },
+
+                methods: {
+                    updateHMAC: function() {
+                        console.log("update");
+                    }
+                }
             });
 
             app.mount("#generator");
@@ -45,6 +64,17 @@
             }
             h3 {
                 margin-bottom: 3px;
+            }
+            input[type=text] {
+                margin: 0 4px 0 -1px;
+                border-radius: 0;
+            }
+            textarea {
+                resize: none;
+                height: 128px;
+                max-width: 380px;
+                width: 50vw;
+                min-width: 280px;
             }
             span#copy {
                 min-width: 26px;
@@ -120,17 +150,33 @@
                     <h3>Generator</h3>
                     <div>
                         <form>
-                            <label for="input">Input</label>
-                            <textarea id="input"></textarea>
-                            
-                            <label for="key">Crypto Key</label>
-                            <input type="text" id="key">
+                            <p>
+                                <label for="input">Input</label>
+                                <textarea
+                                    @input="updateHMAC"
+                                    v-model="input"
+                                    id="input"
+                                    spellcheck="false"
+                                    placeholder="input goes here..."    
+                                ></textarea>
+                            </p>
 
-                            <label for="digestmod">Digest Algorithm</label>
-                            <select id="digestmod"></select>
+                            <p>
+                                <label for="crypto-key">Crypto Key</label>
+                                <input type="text" id="crypto-key" v-model="cryptoKey">
+                            </p>
 
-                            <label for="digest">Output</label>
-                            <input type="text" id="digest" readonly>
+                            <p>
+                                <label for="digestmod">Digest Algorithm</label>
+                                <select id="digestmod" v-model="digestmod">
+                                    <option v-for="option in digestmods">{{ option }}</option>
+                                </select>
+                            </p>
+
+                            <p>
+                                <label for="digest">Output</label>
+                                <input type="text" id="digest" readonly>
+                            </p>
                         </form>
                     </div>
                 </article>
