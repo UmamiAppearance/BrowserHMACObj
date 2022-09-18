@@ -2681,6 +2681,7 @@ class BrowserHMACObj {
      */
     constructor(digestmod) {
         [ this.#digestmod, this.#bits ] = getDigestModFromParam(digestmod, DIGESTMODS);
+        this.baseEx = BASE_EX; 
         this.#addConverters();
     }
 
@@ -2832,7 +2833,7 @@ class BrowserHMACObj {
      * @returns {Object} - Uint8Array/Byte representation of the input.
      */
     #ensureBytes(input) {
-        return BASE_EX.byteConverter.encode(input, "bytes");
+        return this.baseEx.byteConverter.encode(input, "bytes");
     } 
 
 
@@ -2881,17 +2882,17 @@ class BrowserHMACObj {
 
         else if ((/SimpleBase/i).test(base)) {
             base = `base${[].concat(String(base).match(/[0-9]+/)).at(0)|0}`;
-            if (!(base in BASE_EX.simpleBase)) {
+            if (!(base in this.baseEx.simpleBase)) {
                 throw new TypeError(errMsg);
             }
-            return BASE_EX.simpleBase[base].encode(buffer); 
+            return this.baseEx.simpleBase[base].encode(buffer); 
         }
         
-        if (!(base in BASE_EX)) {
+        if (!(base in this.baseEx)) {
             throw new TypeError(errMsg);
         }
 
-        return BASE_EX[base].encode(buffer);
+        return this.baseEx[base].encode(buffer);
     }
 
 
@@ -3089,10 +3090,10 @@ class BrowserHMACObj {
         const capitalize = str => str.charAt(0).toUpperCase().concat(str.slice(1));
 
         this.hexdigest = () => this.#digest
-            ? BASE_EX.base16.encode(this.#digest)
+            ? this.baseEx.base16.encode(this.#digest)
             : null;
         
-        const converters = Object.keys(BASE_EX);
+        const converters = Object.keys(this.baseEx);
         this.basedigest = {
             toSimpleBase: {}
         };
@@ -3102,19 +3103,19 @@ class BrowserHMACObj {
         detach(converters, "simpleBase");
 
         for (const converter of converters) {
-            this.basedigest[`to${capitalize(converter)}`] = () => this.#digest 
-                ? BASE_EX[converter].encode(this.#digest)
+            this.basedigest[`to${capitalize(converter)}`] = (...args) => this.#digest 
+                ? this.baseEx[converter].encode(this.#digest, ...args)
                 : null;
         }
 
-        for (const converter in BASE_EX.simpleBase) {
-            this.basedigest.toSimpleBase[capitalize(converter)] = () => this.#digest
-                ? BASE_EX.simpleBase[converter].encode(this.#digest)
+        for (const converter in this.baseEx.simpleBase) {
+            this.basedigest.toSimpleBase[capitalize(converter)] = (...args) => this.#digest
+                ? this.baseEx.simpleBase[converter].encode(this.#digest, ...args)
                 : null;
         }
 
-        this.basedigest.toBytes = () => this.#digest
-            ? BASE_EX.byteConverter.encode(this.#digest)
+        this.basedigest.toBytes = (...args) => this.#digest
+            ? this.baseEx.byteConverter.encode(this.#digest, ...args)
             : null;
     }
 
