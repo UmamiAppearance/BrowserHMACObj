@@ -49,6 +49,19 @@
                                 this.hmac = obj.hexdigest();
                             }
                         )
+                    },
+                    clipboard: function(e) {
+                        window.navigator.clipboard.writeText(
+                            e.target
+                             .parentElement
+                             .childNodes[0]
+                             .value
+                        );
+                        const copied = document.querySelector("#copied");
+                        copied.classList.add("show");
+                        setTimeout(() => {
+                            copied.classList.remove("show");
+                        }, 1500)
                     }
                 },
 
@@ -97,6 +110,7 @@
                 max-width: 380px;
                 width: 50vw;
                 min-width: 280px;
+                padding-right: 20px;
             }
             span#copy {
                 min-width: 26px;
