@@ -16,23 +16,25 @@
             //import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.prod.js";
             import { createApp } from "https://cdn.jsdelivr.net/npm/vue@3.2.39/dist/vue.esm-browser.js";
 
+
+
             const Data = {
-                cryptoKey: null,
+                cryptoKey: (() => {
+                    const bytes = [];
+                    while (bytes.length < 32) {
+                        bytes.push(Math.floor(Math.random() * 256));
+                    }
+                    
+                    return BrowserHMACObj.baseEx.simpleBase.base36.encode(
+                        Uint8Array.from(bytes),
+                        "upper"
+                    );
+                })(),
                 digestmod: "SHA-256",
                 digestmods: BrowserHMACObj.digestmodsAvailable(),
                 hmac: null,
                 message: "Hello World!"
             };
-
-            let bytes = [];
-            while (bytes.length < 32) {
-                bytes.push(Math.floor(Math.random() * 256));
-            }
-            
-            Data.cryptoKey = BrowserHMACObj.baseEx.simpleBase.base36.encode(
-                Uint8Array.from(bytes),
-                "upper"
-            );
             
             // vue definitions
             const app = createApp({
