@@ -1353,7 +1353,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base1 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-1.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -1512,7 +1512,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base16 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/src/converters/base-16.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -1591,7 +1591,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base32 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-32.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -1690,7 +1690,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base58 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-58.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -1828,7 +1828,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base64 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-64.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -1915,7 +1915,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base85 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-85.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -2044,7 +2044,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Base91 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/base-91.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0 AND BSD-3-Clause (Base91, Copyright (c) 2000-2006 Joachim Henke)
      */
@@ -2253,7 +2253,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|Byte Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/byte-converter.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -2363,7 +2363,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|LEB128 Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/leb-128.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -2527,7 +2527,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx|SimpleBase Converter]{@link https://github.com/UmamiAppearance/BaseExJS/blob/main/src/converters/leb-128.js}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0
      */
@@ -2588,7 +2588,7 @@ var BrowserHMACObj = (function () {
     /**
      * [BaseEx]{@link https://github.com/UmamiAppearance/BaseExJS}
      *
-     * @version 0.4.2
+     * @version 0.4.3
      * @author UmamiAppearance [mail@umamiappearance.eu]
      * @license GPL-3.0 AND BSD-3-Clause (only regarding Base91, Copyright (c) 2000-2006 Joachim Henke)
      */
@@ -2684,9 +2684,14 @@ var BrowserHMACObj = (function () {
          */
         constructor(digestmod) {
             [ this.#digestmod, this.#bits ] = getDigestModFromParam(digestmod, DIGESTMODS);
-            this.baseEx = BASE_EX; 
             this.#addConverters();
         }
+
+
+        /**
+         * BaseEx instance.
+         */
+        static baseEx = BASE_EX;
 
 
         /**
@@ -2836,7 +2841,7 @@ var BrowserHMACObj = (function () {
          * @returns {Object} - Uint8Array/Byte representation of the input.
          */
         #ensureBytes(input) {
-            return this.baseEx.byteConverter.encode(input, "bytes");
+            return BASE_EX.byteConverter.encode(input, "bytes");
         } 
 
 
@@ -2885,17 +2890,17 @@ var BrowserHMACObj = (function () {
 
             else if ((/SimpleBase/i).test(base)) {
                 base = `base${[].concat(String(base).match(/[0-9]+/)).at(0)|0}`;
-                if (!(base in this.baseEx.simpleBase)) {
+                if (!(base in BASE_EX.simpleBase)) {
                     throw new TypeError(errMsg);
                 }
-                return this.baseEx.simpleBase[base].encode(buffer); 
+                return BASE_EX.simpleBase[base].encode(buffer); 
             }
             
-            if (!(base in this.baseEx)) {
+            if (!(base in BASE_EX)) {
                 throw new TypeError(errMsg);
             }
 
-            return this.baseEx[base].encode(buffer);
+            return BASE_EX[base].encode(buffer);
         }
 
 
@@ -3093,10 +3098,10 @@ var BrowserHMACObj = (function () {
             const capitalize = str => str.charAt(0).toUpperCase().concat(str.slice(1));
 
             this.hexdigest = () => this.#digest
-                ? this.baseEx.base16.encode(this.#digest)
+                ? BASE_EX.base16.encode(this.#digest)
                 : null;
             
-            const converters = Object.keys(this.baseEx);
+            const converters = Object.keys(BASE_EX);
             this.basedigest = {
                 toSimpleBase: {}
             };
@@ -3107,18 +3112,18 @@ var BrowserHMACObj = (function () {
 
             for (const converter of converters) {
                 this.basedigest[`to${capitalize(converter)}`] = (...args) => this.#digest 
-                    ? this.baseEx[converter].encode(this.#digest, ...args)
+                    ? BASE_EX[converter].encode(this.#digest, ...args)
                     : null;
             }
 
-            for (const converter in this.baseEx.simpleBase) {
+            for (const converter in BASE_EX.simpleBase) {
                 this.basedigest.toSimpleBase[capitalize(converter)] = (...args) => this.#digest
-                    ? this.baseEx.simpleBase[converter].encode(this.#digest, ...args)
+                    ? BASE_EX.simpleBase[converter].encode(this.#digest, ...args)
                     : null;
             }
 
             this.basedigest.toBytes = (...args) => this.#digest
-                ? this.baseEx.byteConverter.encode(this.#digest, ...args)
+                ? BASE_EX.byteConverter.encode(this.#digest, ...args)
                 : null;
         }
 

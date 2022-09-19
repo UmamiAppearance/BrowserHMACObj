@@ -24,13 +24,15 @@
                 message: "Hello World!"
             };
 
-            let h = new BrowserHMACObj(Data.digestmod);
-
-            let chars = [];
-            while (chars.length < 32) {
-                chars.push(...h.baseEx.simpleBase.base36.encode(Math.random(), "upper"));
+            let bytes = [];
+            while (bytes.length < 32) {
+                bytes.push(Math.floor(Math.random() * 256));
             }
-            Data.cryptoKey = chars.join("");           
+            
+            Data.cryptoKey = BrowserHMACObj.baseEx.simpleBase.base36.encode(
+                Uint8Array.from(bytes),
+                "upper"
+            );
             
             // vue definitions
             const app = createApp({
@@ -45,23 +47,25 @@
                             this.message,
                             this.digestmod
                         ).then(
-                            (obj) => {
-                                this.hmac = obj.hexdigest();
+                            (h) => {
+                                this.hmac = h.hexdigest();
                             }
                         )
                     },
                     clipboard: function(e) {
-                        window.navigator.clipboard.writeText(
-                            e.target
-                             .parentElement
-                             .childNodes[0]
-                             .value
-                        );
-                        const copied = document.querySelector("#copied");
-                        copied.classList.add("show");
-                        setTimeout(() => {
-                            copied.classList.remove("show");
-                        }, 1500)
+                        const value = e.target
+                            .parentElement
+                            .childNodes[0]
+                            .value;
+                        
+                        if (value) {
+                            window.navigator.clipboard.writeText(value);
+                            const copied = document.querySelector("#copied");
+                            copied.classList.add("show");
+                            setTimeout(() => {
+                                copied.classList.remove("show");
+                            }, 1500);
+                        }
                     }
                 },
 
@@ -213,6 +217,7 @@
                                         type="text"
                                         id="crypto-key"
                                         v-model="cryptoKey"
+                                        placeholder="hidden (automatically generated)"
                                     >
                                     <span @click="clipboard" class="copy" title="copy to clipboard">&nbsp;</span>
                                 </div>
