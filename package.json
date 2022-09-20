@@ -1,7 +1,15 @@
 {
   "name": "browser-hmac-obj",
   "version": "0.1.0",
-  "description": "JavaScript implementation of hmac generation and verification for the browser.",
+  "description": "JavaScript implementation of HMAC generation and verification for the browser.",
+  "keywords": [
+    "browser",
+    "crypto",
+    "cryptography",
+    "hmac",
+    "library",
+    "subtlecrypto"  
+  ],
   "main": "src/index.js",
   "type": "module",
   "directories": {
