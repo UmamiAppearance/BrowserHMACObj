@@ -2658,8 +2658,8 @@ var BrowserHMACObj = (function () {
 
     /**
      * Creates a HMAC-SHA-(1-512) object for the browser.
-     * It is very closely related to pythons hmac library
-     * in its methods and features but with many extras.
+     * It is related to pythons hmac library in its methods
+     * and features but with many extras.
      * 
      * It provides an easy access to the browsers Crypto.subtle
      * method, and also makes it possible to get multiple
@@ -2776,7 +2776,7 @@ var BrowserHMACObj = (function () {
         /**
          * Asynchronously creates a new instance. In contrast
          * to the regular new operator a message and key can 
-         * be provided. If a message is set a key must also be
+         * be provided. If a message is set, a key must also be
          * handed over or a crypto key gets generated automatically.
          * A message gets passed to the 'update' method.
          * 
@@ -2949,10 +2949,10 @@ var BrowserHMACObj = (function () {
 
         /**
          * Method to replace the assigned Crypto Key.
-         * @param {Object} keyObj - The new Crypto Key. 
+         * @param {Object} cryptoKey - The new Crypto Key. 
          */
-        async setKey(keyObj) {
-            this.#key = keyObj;
+        async setKey(cryptoKey) {
+            this.#key = cryptoKey;
 
             if (this.#input.length) {
                 console.warn("A new crypto key was established. A fresh digest is now getting calculated.");
@@ -3061,7 +3061,7 @@ var BrowserHMACObj = (function () {
 
         /**
          * A given message and signature can be tested 
-         * if it is signed with the help of the instance
+         * if it is signed with the current instance
          * crypto key.
          * @param {*} msg - Message.
          * @param {ArrayBuffer} signature - Signature as ArrayBuffer. 
