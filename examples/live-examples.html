@@ -15,6 +15,33 @@
             window.BrowserHMACObj = BrowserHMACObj;
             import liveExamples from "https://umamiappearance.github.io/JSLiveExamples/dist/js-live-examples.esm.min.js";
        
+            document.addEventListener("DOMContentLoaded", () => {
+                const reprList = document.querySelector("#repr-list");
+
+                const hmacObj = new BrowserHMACObj("SHA-1");
+                const representations = Object.keys(hmacObj.basedigest);
+                representations.splice(representations.indexOf("toSimpleBase"), 1);
+                
+                representations.forEach(repr => {
+                    const li = document.createElement("li");
+                    li.textContent = repr + "()";
+                    reprList.append(li);
+                });
+
+                const simpleBaseLi = document.createElement("li");
+                simpleBaseLi.textContent = "toSimpleBase"
+                const simpleBase = document.createElement("ul");
+                for (const sbRepr in hmacObj.basedigest.toSimpleBase) {
+                    const li = document.createElement("li");
+                    li.textContent = sbRepr + "()";
+                    simpleBase.append(li);
+                }
+                simpleBaseLi.append(simpleBase);
+                reprList.append(simpleBaseLi);
+
+
+
+            }, false);
         </script>
 
 <!-- CSS -->
@@ -90,14 +117,128 @@
 
             <section id="examples">
                 <article>
-                    <template class="live-example">
+                    <template class="live-example no-scroll">
                         <h1>Creating instances</h1>
                         
                         <script data-run="true">
-                          // TODO: fill me
+                            const sha1 = new BrowserHMACObj("SHA-1");
+                            await sha1.generateKey();
+                            await sha1.update("Hello World!");
+                            console.log("SHA-1:  ", sha1.hexdigest());
+
+                            const sha256 = new BrowserHMACObj("SHA-256");
+                            await sha256.importKey("super_secret_key");
+                            await sha256.update("Hello World!");
+                            console.log("SHA-256:", sha256.hexdigest());
+
+                            const sha384 = await BrowserHMACObj.new(
+                                "super_secret_key",
+                                "Hello World!",
+                                "SHA-384"
+                            )
+                            console.log("SHA-384:", sha384.hexdigest());
+
+                            const sha512 = await BrowserHMACObj.new(
+                                null, // <-- this will produce a warning, and the automatic generation of a key
+                                "Hello World!",
+                                "SHA-512"
+                            )
+                            console.log("SHA-512:", sha512.hexdigest());
                         </script>
                     </template>
                 </article>
+
+                <article>
+                    <h3>&#9755; hmacObj.update(a); hmacObj.update(b) is in many occasions equivalent to hmacObj.update(a+b)</h3>
+                    <template class="live-example">
+                        <h1>.update() & byte concatenation</h1>
+                        
+                        <script data-run="true">
+                            // True for concatenation:
+                            const hmacObjA = await BrowserHMACObj.new("super_secret_key", "Hello", "SHA-1");
+                            await hmacObjA.update(" World!!!");
+                            const hmacObjB = await BrowserHMACObj.new("super_secret_key", "Hello World!!!", "SHA-1");
+                            console.log(hmacObjA.hexdigest(), "≙", hmacObjB.hexdigest());
+
+                            // Not true for mathematical operations:
+                            const hmacObjC = await BrowserHMACObj.new("super_secret_key", 1, "SHA-1");
+                            await hmacObjC.update(2);
+                            const hmacObjD = await BrowserHMACObj.new("super_secret_key", 1+2, "SHA-1");
+                            console.log(hmacObjC.hexdigest(), "≠", hmacObjD.hexdigest());
+                        </script>
+                    </template>
+                </article>
+
+                <article id="base-representations">
+                    <h3>&#9755; There are plenty of representation available:</h3>
+                    <ul id="repr-list" class="math"></ul>
+                    <template class="live-example">
+                        <h1>Base Representations</h1>
+                        
+                        <script data-run="true">
+                            const reprObj = await BrowserHMACObj.new("key-abc123", "Hello World!!!", "SHA-1");
+                            console.log(
+                                "toBytes:",
+                                reprObj.basedigest.toBytes()
+                            );
+                            console.log(
+                                "toBase64:",
+                                reprObj.basedigest.toBase64()
+                            );
+                            console.log(
+                                "toSimpleBase.Base6:",
+                                reprObj.basedigest.toSimpleBase.Base6()
+                            );
+                        </script>
+                    </template>
+                </article>
+
+                <article>
+                    <h3>&#9755; It is possible to sign singular messages without updating the object (including digest comparison):</h3>
+                    <ul id="repr-list" class="math"></ul>
+                    <template class="live-example">
+                        <h1>Single Signing / Digest Comparison</h1>
+                        
+                        <script data-run="true">
+                            const h = new BrowserHMACObj("SHA-384");
+                            await h.generateKey();
+                            await h.update("Hello ");
+                            await h.update("World!");
+                            
+                            const digestA = h.digest();
+                            const digestB = await h.sign("Hello World!");
+
+                            console.log("equality is:", BrowserHMACObj.compareDigest(digestA, digestB));
+                        </script>
+                    </template>
+                </article>
+
+                <article>
+                    <h3>&#9755; Crypto Keys can be generated externally and integrated (including the verification of authenticity):</h3>
+                    <ul id="repr-list" class="math"></ul>
+                    <template class="live-example">
+                        <h1>External Crypto Key / Verification</h1>
+                        
+                        <script data-run="true">
+                            const key = await BrowserHMACObj.generateKey("SHA-512");
+                            const msg = "Hello World!";
+                            const obj = await BrowserHMACObj.new(key, msg, "SHA-512", "object");
+                            
+                            const signatureA = new TextEncoder().encode("abc123"); 
+                            const signatureB = obj.digest();
+
+                            console.log(
+                                "authenticity of A is:",
+                                await obj.verify(msg, signatureA)
+                            );
+                            console.log(
+                                "authenticity of B is:",
+                                await obj.verify(msg, signatureB)
+                            );
+                        </script>
+                    </template>
+                </article>
+
 
             </section>
 
