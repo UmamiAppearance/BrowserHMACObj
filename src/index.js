@@ -307,10 +307,10 @@ export default class BrowserHMACObj {
 
     /**
      * Method to replace the assigned Crypto Key.
-     * @param {Object} keyObj - The new Crypto Key. 
+     * @param {Object} cryptoKey - The new Crypto Key. 
      */
-    async setKey(keyObj) {
-        this.#key = keyObj;
+    async setKey(cryptoKey) {
+        this.#key = cryptoKey;
 
         if (this.#input.length) {
             console.warn("A new crypto key was established. A fresh digest is now getting calculated.");
@@ -419,7 +419,7 @@ export default class BrowserHMACObj {
 
     /**
      * A given message and signature can be tested 
-     * if it is signed with the help of the instance
+     * if it is signed with the current instance
      * crypto key.
      * @param {*} msg - Message.
      * @param {ArrayBuffer} signature - Signature as ArrayBuffer. 

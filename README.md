@@ -81,10 +81,21 @@ const hmacSHA512 = await HMACObj.new("super_secret_key", "Hello World!", "SHA-51
 ##### ``BrowserHMACObj.digestmodsAvailable()``
 A set containing the names of the hash algorithms that are available.
 
+##### ``BrowserHMACObj.keyFormats()``
+Static method to receive a set of the available key formats.
+
 ##### ``BrowserHMACObj.new(key=null, msg=null, digestmod="", keyFormat="raw", permitExports=false)``
 Asynchronously creates a new instance. In contrast to the regular [new operator](#new-operator) a message and key can  be provided. If a message is set, a key must also be handed over or a crypto key gets generated automatically.  
   
 A message gets passed to the [``update``](#updateinput-replacefalse) method.
+
+##### ``BrowserHMACObj.generateKey()``
+Static asynchronous method to generate a crypto key for the HMAC algorithm.
+
+##### ``BrowserHMACObj.compareDigest(a, b)``
+Return ``a === b``. This function uses an approach designed to prevent timing analysis by avoiding content-based short circuiting behavior, making it appropriate for cryptography.  
+
+``a`` and ``b`` (or more precisely their byte representation) must both be of the same type.
 
 ##### ``BrowserHMACObj.baseEx``
 A [BaseEx Instance](https://github.com/UmamiAppearance/BaseExJS#available-converterscharsets) for the possibility to manually convert (byte) representations.
@@ -106,9 +117,26 @@ Update the HMAC object with almost any input. The input gets converted to a ``Ui
   
 _(Note: The process is a concatenation of bytes. Take as an exception for instance ``hmacObj.update(1)``; ``hmacObj.update(2)``, which is not the same as ``hmacObj.update(1+2)``)_
 
-
 ##### ``replace(input)``
 Replace the the HMAC object with fresh input (the same as ``update(input, true)``).
+
+##### ``sign(msg, base=null)``
+Signs a single message independent from the current instance message. If a base is provided, the key gets returned in the corresponding [base representation](https://umamiappearance.github.io/BrowserHMACObj/examples/live-examples.html#base-representations).
+
+##### ``verify(msg, signature)``
+A given message (``msg``) and ``signature`` can be tested if it is signed with the current instance crypto key.
+
+##### ``setKey(cryptoKey)``
+Method to set or replace the associated crypto key. The key must be as provided of the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey).
+
+##### ``generateKey(permitExports=true)``
+Like the [static method](#browserhmacobjgeneratekey), with the difference, that the key is not returned but assigned to the instance. By default the key is exportable.
+
+##### ``importKey(key, format="raw", permitExports=false)
+Import a Crypto Key from almost any input or a pre existing key.
+
+##### ``exportKey(format="raw")``
+Exports the Crypto Key assigned to the instance, if it is an exportable key.
 
 ##### ``digest()``
 Return the digest of the data passed to the [``update``](#updateinput-replacefalse) method so far. This is an ``ArrayBuffer`` of size [``digestSize``](#digestsize-property).
