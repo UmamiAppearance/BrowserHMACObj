@@ -1,7 +1,7 @@
 /**
  * [BrowserHMACObj]{@link https://github.com/UmamiAppearance/BrowserHMACObj}
  *
- * @version 0.1.0
+ * @version 0.1.1
  * @author UmamiAppearance [mail@umamiappearance.eu]
  * @license GPL-3.0
  */
@@ -484,5 +484,4 @@ export default class BrowserHMACObj {
             ? BASE_EX.byteConverter.encode(this.#digest, ...args)
             : null;
     }
-
 }
